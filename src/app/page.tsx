@@ -5,6 +5,8 @@ import { StarChart } from "@/components/star-chart";
 import { ThemePicker } from "@/components/theme-picker";
 import { RepoSearch } from "@/components/repo-search";
 import { RepoChips } from "@/components/repo-chips";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { themes, defaultTheme } from "@/lib/themes";
 import type { StarDataPoint, RepoInfo } from "@/lib/github";
 
@@ -18,6 +20,7 @@ export default function Home() {
   const [repos, setRepos] = useState<LoadedRepo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const theme = themes[themeId];
 
@@ -25,8 +28,11 @@ export default function Home() {
     async (owner: string, repo: string) => {
       const fullName = `${owner}/${repo}`;
 
-      // Don't add duplicates
-      if (repos.some((r) => r.info.fullName.toLowerCase() === fullName.toLowerCase())) {
+      if (
+        repos.some(
+          (r) => r.info.fullName.toLowerCase() === fullName.toLowerCase()
+        )
+      ) {
         setError("Repo already added");
         return;
       }
@@ -43,7 +49,10 @@ export default function Home() {
           return;
         }
 
-        setRepos((prev) => [...prev, { info: data.info, history: data.history }]);
+        setRepos((prev) => [
+          ...prev,
+          { info: data.info, history: data.history },
+        ]);
       } catch {
         setError("Failed to fetch star data");
       } finally {
@@ -57,22 +66,39 @@ export default function Home() {
     setRepos((prev) => prev.filter((r) => r.info.fullName !== name));
   }, []);
 
+  const copyLink = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.searchParams.set(
+      "repos",
+      repos.map((r) => r.info.fullName).join(",")
+    );
+    url.searchParams.set("theme", themeId);
+    navigator.clipboard.writeText(url.toString());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [repos, themeId]);
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
       {/* Header */}
       <div className="mb-12 text-center">
-        <h1 className="mb-3 text-4xl font-bold tracking-tight text-white">
+        <h1 className="mb-3 text-4xl font-bold tracking-tight">
           ★ Star History
         </h1>
-        <p className="text-lg text-[#888]">
+        <p className="text-lg text-muted-foreground">
           Track and compare GitHub star history with beautiful charts
         </p>
       </div>
 
       {/* Search */}
       <div className="mb-6">
-        <RepoSearch onAdd={addRepo} loading={loading} repoCount={repos.length} />
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+        <RepoSearch
+          onAdd={addRepo}
+          loading={loading}
+          repoCount={repos.length}
+        />
+        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
       </div>
 
       {/* Repo chips */}
@@ -101,33 +127,35 @@ export default function Home() {
           />
         </div>
       ) : (
-        <div className="mb-6 flex h-[400px] items-center justify-center rounded-xl border border-[#222] bg-[#0a0a0a]">
-          <div className="text-center text-[#555]">
-            <p className="mb-2 text-5xl">★</p>
-            <p className="text-lg">Add a repo to see its star history</p>
-            <p className="mt-1 text-sm">
-              Try{" "}
-              <button
-                onClick={() => addRepo("facebook", "react")}
-                className="text-blue-400 underline decoration-blue-400/30 hover:decoration-blue-400"
-              >
-                facebook/react
-              </button>
-              {" or "}
-              <button
-                onClick={() => addRepo("vercel", "next.js")}
-                className="text-blue-400 underline decoration-blue-400/30 hover:decoration-blue-400"
-              >
-                vercel/next.js
-              </button>
-            </p>
-          </div>
-        </div>
+        <Card className="mb-6">
+          <CardContent className="flex h-[400px] items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <p className="mb-2 text-5xl">★</p>
+              <p className="text-lg">Add a repo to see its star history</p>
+              <p className="mt-2 text-sm">
+                Try{" "}
+                <button
+                  onClick={() => addRepo("facebook", "react")}
+                  className="text-primary underline decoration-primary/30 hover:decoration-primary"
+                >
+                  facebook/react
+                </button>
+                {" or "}
+                <button
+                  onClick={() => addRepo("vercel", "next.js")}
+                  className="text-primary underline decoration-primary/30 hover:decoration-primary"
+                >
+                  vercel/next.js
+                </button>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Theme picker */}
       <div className="mb-8">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[#666]">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Theme
         </p>
         <ThemePicker current={themeId} onChange={setThemeId} />
@@ -136,32 +164,21 @@ export default function Home() {
       {/* Share/Export */}
       {repos.length > 0 && (
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => {
-              const url = new URL(window.location.href);
-              url.searchParams.set(
-                "repos",
-                repos.map((r) => r.info.fullName).join(",")
-              );
-              url.searchParams.set("theme", themeId);
-              navigator.clipboard.writeText(url.toString());
-            }}
-            className="rounded-lg border border-[#333] px-4 py-2 text-sm text-[#888] transition-colors hover:border-[#555] hover:text-white"
-          >
-            Copy Link
-          </button>
+          <Button variant="outline" size="sm" onClick={copyLink}>
+            {copied ? "Copied!" : "Copy Link"}
+          </Button>
         </div>
       )}
 
       {/* Footer */}
-      <footer className="mt-16 border-t border-[#222] pt-6 text-center text-sm text-[#555]">
+      <footer className="mt-16 border-t pt-6 text-center text-sm text-muted-foreground">
         <p>
           Built by{" "}
           <a
             href="https://github.com/TheOrcDev"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#888] hover:text-white"
+            className="text-foreground/70 hover:text-foreground"
           >
             OrcDev
           </a>
@@ -170,7 +187,7 @@ export default function Home() {
             href="https://github.com/TheOrcDev/star-history"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#888] hover:text-white"
+            className="text-foreground/70 hover:text-foreground"
           >
             Source
           </a>

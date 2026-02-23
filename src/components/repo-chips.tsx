@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { themes } from "@/lib/themes";
 
 interface RepoChip {
@@ -26,10 +27,10 @@ export function RepoChips({ repos, themeId, onRemove }: RepoChipsProps) {
   return (
     <div className="flex flex-wrap gap-2">
       {repos.map((repo, i) => (
-        <div
+        <Badge
           key={repo.name}
-          className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm"
-          style={{ borderColor: theme.lineColors[i % theme.lineColors.length] + "66" }}
+          variant="outline"
+          className="gap-2 py-1.5 pl-2.5 pr-2 text-sm font-normal"
         >
           <span
             className="h-2.5 w-2.5 rounded-full"
@@ -37,15 +38,15 @@ export function RepoChips({ repos, themeId, onRemove }: RepoChipsProps) {
               background: theme.lineColors[i % theme.lineColors.length],
             }}
           />
-          <span className="text-white">{repo.name}</span>
-          <span className="text-[#666]">★ {formatStars(repo.stars)}</span>
+          <span>{repo.name}</span>
+          <span className="text-muted-foreground">★ {formatStars(repo.stars)}</span>
           <button
             onClick={() => onRemove(repo.name)}
-            className="ml-1 text-[#555] transition-colors hover:text-red-400"
+            className="ml-0.5 text-muted-foreground transition-colors hover:text-destructive"
           >
             ×
           </button>
-        </div>
+        </Badge>
       ))}
     </div>
   );

@@ -152,16 +152,16 @@ export function StarChart({ repos, theme }: StarChartProps) {
               color: theme.tooltipText,
               fontSize: 13,
             }}
-            labelFormatter={(label: string) =>
+            labelFormatter={(label) =>
               new Date(label).toLocaleDateString("en-US", {
                 month: "long",
                 day: "numeric",
                 year: "numeric",
               })
             }
-            formatter={(value: number, name: string) => [
-              formatStars(value),
-              name,
+            formatter={(value, name) => [
+              formatStars(value as number),
+              name as string,
             ]}
           />
           {repoNames.map((name, i) => (

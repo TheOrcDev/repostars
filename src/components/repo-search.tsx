@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface RepoSearchProps {
   onAdd: (owner: string, repo: string) => void;
@@ -47,27 +49,27 @@ export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       <div className="flex gap-2">
-        <input
+        <Input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="owner/repo or GitHub URL"
-          className="flex-1 rounded-xl border border-[#333] bg-[#111] px-4 py-3 text-white placeholder-[#555] outline-none transition-colors focus:border-blue-500"
           disabled={loading}
+          className="h-11"
         />
-        <button
+        <Button
           type="submit"
           disabled={loading || !input.trim()}
-          className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-40"
+          className="h-11 px-6"
         >
           {loading ? (
-            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
           ) : (
             "Add"
           )}
-        </button>
+        </Button>
       </div>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );
 }
