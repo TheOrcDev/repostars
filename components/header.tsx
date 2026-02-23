@@ -9,7 +9,7 @@ export function Header() {
       <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <Star className="h-5 w-5 text-yellow-500" fill="currentColor" />
-          <span>Star History</span>
+          <span>Starstruck</span>
         </Link>
 
         <div className="flex items-center gap-1">
