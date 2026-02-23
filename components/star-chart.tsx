@@ -98,6 +98,29 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(function Sta
         fontFamily: theme.fontFamily,
       }}
     >
+      {/* Legend */}
+      {repoNames.length > 0 && (
+        <div style={{
+          display: "flex",
+          gap: 16,
+          marginBottom: 12,
+          fontSize: 13,
+          color: theme.textColor,
+        }}>
+          {repoNames.map((name, i) => (
+            <div key={name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{
+                display: "inline-block",
+                width: 10, height: 10,
+                borderRadius: "50%",
+                background: theme.lineColors[i % theme.lineColors.length],
+              }} />
+              <span>{name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <ResponsiveContainer width="100%" height={400}>
         <AreaChart data={merged} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
           <defs>
