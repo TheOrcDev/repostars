@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { StarChart } from "@/components/star-chart";
+import { StarChart8Bit } from "@/components/star-chart-8bit";
 import { ThemePicker } from "@/components/theme-picker";
 import { RepoSearch } from "@/components/repo-search";
 import { RepoChips } from "@/components/repo-chips";
@@ -165,14 +166,25 @@ export default function Home() {
       {/* Chart */}
       {repos.length > 0 ? (
         <div className="mb-6">
-          <StarChart
-            ref={chartRef}
-            repos={repos.map((r) => ({
-              name: r.info.fullName,
-              data: r.history,
-            }))}
-            theme={theme}
-          />
+          {themeId === "8bit" ? (
+            <StarChart8Bit
+              ref={chartRef}
+              repos={repos.map((r) => ({
+                name: r.info.fullName,
+                data: r.history,
+              }))}
+              theme={theme}
+            />
+          ) : (
+            <StarChart
+              ref={chartRef}
+              repos={repos.map((r) => ({
+                name: r.info.fullName,
+                data: r.history,
+              }))}
+              theme={theme}
+            />
+          )}
         </div>
       ) : (
         <Card className="mb-6">
