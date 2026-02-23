@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { toPng } from "html-to-image";
 import { StarChart } from "@/components/star-chart";
 import { ThemePicker } from "@/components/theme-picker";
 import { RepoSearch } from "@/components/repo-search";
@@ -21,6 +22,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const theme = themes[themeId];
 
@@ -65,6 +67,22 @@ export default function Home() {
   const removeRepo = useCallback((name: string) => {
     setRepos((prev) => prev.filter((r) => r.info.fullName !== name));
   }, []);
+
+  const exportPng = useCallback(async () => {
+    if (!chartRef.current) return;
+    try {
+      const dataUrl = await toPng(chartRef.current, {
+        pixelRatio: 2,
+        backgroundColor: theme.background,
+      });
+      const link = document.createElement("a");
+      link.download = `star-history-${repos.map((r) => r.info.fullName.replace("/", "-")).join("_")}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  }, [repos, theme]);
 
   const copyLink = useCallback(() => {
     const url = new URL(window.location.href);
@@ -119,6 +137,7 @@ export default function Home() {
       {repos.length > 0 ? (
         <div className="mb-6">
           <StarChart
+            ref={chartRef}
             repos={repos.map((r) => ({
               name: r.info.fullName,
               data: r.history,
@@ -164,6 +183,9 @@ export default function Home() {
       {/* Share/Export */}
       {repos.length > 0 && (
         <div className="flex flex-wrap gap-3">
+          <Button variant="outline" size="sm" onClick={exportPng}>
+            Export PNG
+          </Button>
           <Button variant="outline" size="sm" onClick={copyLink}>
             {copied ? "Copied!" : "Copy Link"}
           </Button>

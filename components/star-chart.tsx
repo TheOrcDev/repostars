@@ -1,8 +1,7 @@
 "use client";
 
+import { forwardRef } from "react";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -70,7 +69,7 @@ function mergeData(repos: RepoData[]) {
   });
 }
 
-export function StarChart({ repos, theme }: StarChartProps) {
+export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(function StarChart({ repos, theme }, ref) {
   if (repos.length === 0 || repos.every((r) => r.data.length === 0)) {
     return (
       <div
@@ -91,6 +90,7 @@ export function StarChart({ repos, theme }: StarChartProps) {
 
   return (
     <div
+      ref={ref}
       className="rounded-xl border p-4"
       style={{
         background: theme.background,
@@ -185,4 +185,4 @@ export function StarChart({ repos, theme }: StarChartProps) {
       </ResponsiveContainer>
     </div>
   );
-}
+});
