@@ -103,11 +103,8 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
-      {/* Header */}
+      {/* Hero */}
       <div className="mb-12 text-center">
-        <h1 className="mb-3 text-4xl font-bold tracking-tight">
-          ★ Star History
-        </h1>
         <p className="text-lg text-muted-foreground">
           Track and compare GitHub star history with beautiful charts
         </p>

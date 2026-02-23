@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Header } from "@/components/header";
 
 export const metadata: Metadata = {
   title: "Star History — GitHub Star Charts with Themes",
@@ -15,9 +17,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
-        <TooltipProvider>{children}</TooltipProvider>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Header />
+            {children}
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
