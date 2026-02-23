@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { toPng } from "html-to-image";
 import { StarChart } from "@/components/star-chart";
 import { ThemePicker } from "@/components/theme-picker";
@@ -25,6 +25,34 @@ export default function Home() {
   const chartRef = useRef<HTMLDivElement>(null);
 
   const theme = themes[themeId];
+
+  // Load repos and theme from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlTheme = params.get("theme");
+    if (urlTheme && themes[urlTheme]) setThemeId(urlTheme);
+
+    const urlRepos = params.get("repos");
+    if (urlRepos) {
+      const repoList = urlRepos.split(",").filter(Boolean);
+      (async () => {
+        for (const fullName of repoList) {
+          const [owner, repo] = fullName.split("/");
+          if (!owner || !repo) continue;
+          try {
+            const res = await fetch(`/api/stars/${owner}/${repo}`);
+            const data = await res.json();
+            if (res.ok) {
+              setRepos((prev) => {
+                if (prev.some((r) => r.info.fullName.toLowerCase() === `${owner}/${repo}`.toLowerCase())) return prev;
+                return [...prev, { info: data.info, history: data.history }];
+              });
+            }
+          } catch {}
+        }
+      })();
+    }
+  }, []);
 
   const addRepo = useCallback(
     async (owner: string, repo: string) => {
