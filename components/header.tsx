@@ -15,7 +15,7 @@ export function Header() {
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" asChild>
             <a
-              href="https://github.com/TheOrcDev/star-history"
+              href="https://github.com/TheOrcDev/starstruck"
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -235,7 +235,7 @@ export default function Home() {
           </a>
           {" · "}
           <a
-            href="https://github.com/TheOrcDev/star-history"
+            href="https://github.com/TheOrcDev/starstruck"
             target="_blank"
             rel="noopener noreferrer"
             className="text-foreground/70 hover:text-foreground"
