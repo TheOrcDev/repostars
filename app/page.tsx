@@ -238,22 +238,14 @@ export default function Home() {
         <p>
           Built by{" "}
           <a
-            href="https://github.com/TheOrcDev"
+            href="https://orcdev.com"
             target="_blank"
             rel="noopener noreferrer"
             className="text-foreground/70 hover:text-foreground"
           >
             OrcDev
           </a>
-          {" · "}
-          <a
-            href="https://github.com/TheOrcDev/starstruck"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-foreground/70 hover:text-foreground"
-          >
-            Source
-          </a>
+          {" with 🪓"}
         </p>
       </footer>
     </main>
