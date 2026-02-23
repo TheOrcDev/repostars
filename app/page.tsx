@@ -74,6 +74,10 @@ export default function Home() {
       const dataUrl = await toPng(chartRef.current, {
         pixelRatio: 2,
         backgroundColor: theme.background,
+        style: {
+          font: "14px system-ui, sans-serif",
+        },
+        skipFonts: true,
       });
       const link = document.createElement("a");
       link.download = `star-history-${repos.map((r) => r.info.fullName.replace("/", "-")).join("_")}.png`;
