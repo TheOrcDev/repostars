@@ -5,10 +5,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
 
 export const metadata: Metadata = {
-  title: "Starstruck — GitHub Star Charts with Themes",
+  title: "RepoStars — GitHub Star Charts with Themes",
   description:
     "Track and compare GitHub star history with beautiful, themeable charts. Export as PNG, embed anywhere.",
-  metadataBase: new URL("https://starstruck.dev"),
+  metadataBase: new URL("https://repostars.dev"),
 };
 
 export default function RootLayout({

@@ -1,4 +1,4 @@
-# ★ Starstruck
+# ★ RepoStars
 
 Modern, themeable GitHub star history charts. Track and compare repos with beautiful visualizations.
 
