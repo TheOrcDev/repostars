@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    width: 1200px;
+    height: 630px;
+    background: #000000;
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Subtle grid background */
+  .grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Fake chart */
+  .chart {
+    position: absolute;
+    bottom: 80px;
+    left: 80px;
+    right: 80px;
+    height: 280px;
+  }
+
+  .chart svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Content */
+  .content {
+    position: relative;
+    z-index: 2;
+    padding: 60px 80px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #00ff41, #003b00);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.3);
+  }
+
+  .logo-text {
+    font-size: 42px;
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: -1px;
+  }
+
+  .url {
+    font-size: 20px;
+    color: rgba(0, 255, 65, 0.6);
+    font-weight: 600;
+  }
+
+  .tagline {
+    margin-top: 20px;
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 400;
+  }
+
+  /* Repo chips */
+  .chips {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .chip {
+    background: rgba(0, 255, 65, 0.08);
+    border: 1px solid rgba(0, 255, 65, 0.2);
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 16px;
+    color: #00ff41;
+    font-weight: 600;
+  }
+
+  .chip .stars {
+    color: rgba(0, 255, 65, 0.5);
+    margin-left: 8px;
+    font-weight: 400;
+  }
+
+  /* Bottom bar */
+  .bottom {
+    position: absolute;
+    bottom: 30px;
+    left: 80px;
+    right: 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .themes {
+    display: flex;
+    gap: 8px;
+  }
+
+  .theme-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.1);
+  }
+
+  .built-by {
+    font-size: 16px;
+    color: rgba(255,255,255,0.3);
+  }
+  .built-by span {
+    color: rgba(255,255,255,0.5);
+  }
+</style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  
+  <div class="content">
+    <div class="top">
+      <div class="logo">
+        <div class="logo-icon">★</div>
+        <span class="logo-text">RepoStars</span>
+      </div>
+      <span class="url">repostars.dev</span>
+    </div>
+    
+    <p class="tagline">Track and compare GitHub star history with beautiful, themeable charts</p>
+    
+    <div class="chips">
+      <span class="chip">shadcn-ui/ui <span class="stars">★ 107k</span></span>
+      <span class="chip">47ng/nuqs <span class="stars">★ 10.2k</span></span>
+      <span class="chip">tailwindlabs/tailwindcss <span class="stars">★ 93.8k</span></span>
+    </div>
+  </div>
+
+  <!-- Fake rising chart -->
+  <div class="chart">
+    <svg viewBox="0 0 1040 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#00ff41" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#00ff41" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.1"/>
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ef4444" stop-opacity="0.08"/>
+          <stop offset="100%" stop-color="#ef4444" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      
+      <!-- Grid lines -->
+      <line x1="0" y1="70" x2="1040" y2="70" stroke="rgba(0,255,65,0.06)" stroke-width="1"/>
+      <line x1="0" y1="140" x2="1040" y2="140" stroke="rgba(0,255,65,0.06)" stroke-width="1"/>
+      <line x1="0" y1="210" x2="1040" y2="210" stroke="rgba(0,255,65,0.06)" stroke-width="1"/>
+      
+      <!-- Line 1 (react - green, highest) -->
+      <path d="M0,260 C100,255 200,245 300,230 C400,210 500,170 600,120 C700,80 800,50 900,30 L1040,10" 
+            stroke="#00ff41" stroke-width="2.5" fill="none"/>
+      <path d="M0,260 C100,255 200,245 300,230 C400,210 500,170 600,120 C700,80 800,50 900,30 L1040,10 L1040,280 L0,280Z" 
+            fill="url(#g1)"/>
+      
+      <!-- Line 2 (next.js - blue, mid) -->
+      <path d="M0,265 C100,262 200,258 300,250 C400,238 500,210 600,175 C700,150 800,120 900,95 L1040,70" 
+            stroke="#3b82f6" stroke-width="2.5" fill="none"/>
+      <path d="M0,265 C100,262 200,258 300,250 C400,238 500,210 600,175 C700,150 800,120 900,95 L1040,70 L1040,280 L0,280Z" 
+            fill="url(#g2)"/>
+      
+      <!-- Line 3 (svelte - red, lower) -->
+      <path d="M0,270 C100,268 200,265 300,260 C400,252 500,238 600,215 C700,195 800,175 900,155 L1040,135" 
+            stroke="#ef4444" stroke-width="2.5" fill="none"/>
+      <path d="M0,270 C100,268 200,265 300,260 C400,252 500,238 600,215 C700,195 800,175 900,155 L1040,135 L1040,280 L0,280Z" 
+            fill="url(#g3)"/>
+    </svg>
+  </div>
+
+  <div class="bottom">
+    <div class="themes">
+      <div class="theme-dot" style="background:#00ff41"></div>
+      <div class="theme-dot" style="background:#3b82f6"></div>
+      <div class="theme-dot" style="background:#0ff"></div>
+      <div class="theme-dot" style="background:#ef7d57"></div>
+      <div class="theme-dot" style="background:#ec4899"></div>
+      <div class="theme-dot" style="background:#4ade80"></div>
+    </div>
+    <span class="built-by">Built by <span>OrcDev</span> with 🪓</span>
+  </div>
+</body>
+</html>
