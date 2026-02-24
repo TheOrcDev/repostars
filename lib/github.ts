@@ -175,22 +175,32 @@ export async function getStarHistory(
   }
 
   // For repos > 40k stars, we only have data up to ~40k from the API.
-  // Scale the curve proportionally to match the actual total star count,
-  // and extend to today's date.
+  // Keep the real data shape, then interpolate from the last known point
+  // to today's actual star count with additional data points.
   if (totalStars > MAX_GITHUB_PAGES * 100 && interpolated.length > 0) {
-    const maxFetched = Math.max(...interpolated.map((p) => p.stars));
-    if (maxFetched > 0 && maxFetched < totalStars) {
-      const scale = totalStars / maxFetched;
-      for (const point of interpolated) {
-        point.stars = Math.round(point.stars * scale);
+    const lastPoint = interpolated[interpolated.length - 1];
+    const lastMs = new Date(lastPoint.date).getTime();
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+    const today = new Date(todayMs).toISOString().split("T")[0];
+
+    if (lastPoint.stars < totalStars && lastPoint.date !== today) {
+      // Add interpolated points from last real data to today
+      const gapMs = todayMs - lastMs;
+      const gapDays = gapMs / dayMs;
+      const gapBin = gapDays <= 90 ? dayMs * 7 : dayMs * 30;
+      const starGap = totalStars - lastPoint.stars;
+
+      for (let ms = lastMs + gapBin; ms < todayMs; ms += gapBin) {
+        const t = (ms - lastMs) / gapMs;
+        const date = new Date(ms).toISOString().split("T")[0];
+        interpolated.push({
+          date,
+          stars: Math.round(lastPoint.stars + t * starGap),
+        });
       }
-      // Add a final point at today with the actual star count
-      const today = new Date().toISOString().split("T")[0];
-      if (interpolated[interpolated.length - 1].date !== today) {
-        interpolated.push({ date: today, stars: totalStars });
-      } else {
-        interpolated[interpolated.length - 1].stars = totalStars;
-      }
+
+      // Final point at today with actual star count
+      interpolated.push({ date: today, stars: totalStars });
     }
   }
 
