@@ -33,6 +33,25 @@ function formatStars(n: number) {
   return n.toString();
 }
 
+function interpolateAt(data: StarDataPoint[], dateMs: number): number {
+  if (data.length === 0) return 0;
+  const firstMs = new Date(data[0].date).getTime();
+  const lastMs = new Date(data[data.length - 1].date).getTime();
+  if (dateMs <= firstMs) return data[0].stars;
+  if (dateMs >= lastMs) return data[data.length - 1].stars;
+  let lo = 0, hi = data.length - 1;
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1;
+    if (new Date(data[mid].date).getTime() <= dateMs) lo = mid;
+    else hi = mid;
+  }
+  const loMs = new Date(data[lo].date).getTime();
+  const hiMs = new Date(data[hi].date).getTime();
+  if (hiMs === loMs) return data[lo].stars;
+  const t = (dateMs - loMs) / (hiMs - loMs);
+  return Math.round(data[lo].stars + t * (data[hi].stars - data[lo].stars));
+}
+
 function mergeData(repos: RepoData[]) {
   if (repos.length === 1) {
     return repos[0].data.map((d) => ({
@@ -40,19 +59,22 @@ function mergeData(repos: RepoData[]) {
       [repos[0].name]: d.stars,
     }));
   }
-  const allDates = new Set<string>();
+  let globalMin = Infinity, globalMax = -Infinity;
   for (const repo of repos) {
-    for (const point of repo.data) allDates.add(point.date);
+    for (const point of repo.data) {
+      const ms = new Date(point.date).getTime();
+      if (ms < globalMin) globalMin = ms;
+      if (ms > globalMax) globalMax = ms;
+    }
   }
-  const sortedDates = Array.from(allDates).sort();
-  return sortedDates.map((date) => {
+  const pointCount = 200;
+  const step = (globalMax - globalMin) / (pointCount - 1);
+  return Array.from({ length: pointCount }, (_, i) => {
+    const ms = globalMin + step * i;
+    const date = new Date(ms).toISOString().split("T")[0];
     const entry: Record<string, string | number> = { date };
     for (const repo of repos) {
-      let closest = 0;
-      for (const point of repo.data) {
-        if (point.date <= date) closest = point.stars;
-      }
-      entry[repo.name] = closest;
+      entry[repo.name] = interpolateAt(repo.data, ms);
     }
     return entry;
   });

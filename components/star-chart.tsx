@@ -36,7 +36,30 @@ function formatStars(n: number) {
   return n.toString();
 }
 
-// Merge multiple repos into a single timeline
+// Interpolate a star count for a given date within a repo's data
+function interpolateAt(data: StarDataPoint[], dateMs: number): number {
+  if (data.length === 0) return 0;
+  const firstMs = new Date(data[0].date).getTime();
+  const lastMs = new Date(data[data.length - 1].date).getTime();
+  if (dateMs <= firstMs) return data[0].stars;
+  if (dateMs >= lastMs) return data[data.length - 1].stars;
+
+  // Binary search for surrounding points
+  let lo = 0, hi = data.length - 1;
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1;
+    if (new Date(data[mid].date).getTime() <= dateMs) lo = mid;
+    else hi = mid;
+  }
+
+  const loMs = new Date(data[lo].date).getTime();
+  const hiMs = new Date(data[hi].date).getTime();
+  if (hiMs === loMs) return data[lo].stars;
+  const t = (dateMs - loMs) / (hiMs - loMs);
+  return Math.round(data[lo].stars + t * (data[hi].stars - data[lo].stars));
+}
+
+// Merge multiple repos into a single timeline with interpolation
 function mergeData(repos: RepoData[]) {
   if (repos.length === 1) {
     return repos[0].data.map((d) => ({
@@ -45,25 +68,25 @@ function mergeData(repos: RepoData[]) {
     }));
   }
 
-  // Collect all unique dates
-  const allDates = new Set<string>();
+  // Build a unified timeline: use ~200 evenly spaced points across the full range
+  let globalMin = Infinity, globalMax = -Infinity;
   for (const repo of repos) {
     for (const point of repo.data) {
-      allDates.add(point.date);
+      const ms = new Date(point.date).getTime();
+      if (ms < globalMin) globalMin = ms;
+      if (ms > globalMax) globalMax = ms;
     }
   }
 
-  const sortedDates = Array.from(allDates).sort();
+  const pointCount = 200;
+  const step = (globalMax - globalMin) / (pointCount - 1);
 
-  return sortedDates.map((date) => {
+  return Array.from({ length: pointCount }, (_, i) => {
+    const ms = globalMin + step * i;
+    const date = new Date(ms).toISOString().split("T")[0];
     const entry: Record<string, string | number> = { date };
     for (const repo of repos) {
-      // Find the closest data point at or before this date
-      let closest = 0;
-      for (const point of repo.data) {
-        if (point.date <= date) closest = point.stars;
-      }
-      entry[repo.name] = closest;
+      entry[repo.name] = interpolateAt(repo.data, ms);
     }
     return entry;
   });
