@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useRepos } from "@/hooks/use-repos";
+import { useRepos, type LoadedRepo } from "@/hooks/use-repos";
 import { RepoSearch } from "@/components/repo-search";
 import { RepoChips } from "@/components/repo-chips";
 import { ChartSection } from "@/components/chart-section";
@@ -9,7 +9,12 @@ import { EmptyState } from "@/components/empty-state";
 import { ThemePicker } from "@/components/theme-picker";
 import { ExportBar } from "@/components/export-bar";
 
-export function HomeContent() {
+interface HomeContentProps {
+  initialRepos?: LoadedRepo[];
+  initialTheme?: string;
+}
+
+export function HomeContent({ initialRepos = [], initialTheme }: HomeContentProps) {
   const {
     repos,
     loading,
@@ -19,7 +24,7 @@ export function HomeContent() {
     setThemeId,
     addRepo,
     removeRepo,
-  } = useRepos();
+  } = useRepos({ initialRepos, initialTheme });
 
   const chartRef = useRef<HTMLDivElement>(null);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import { themes, defaultTheme } from "@/lib/themes";
 import type { StarDataPoint, RepoInfo } from "@/lib/github";
@@ -10,20 +10,26 @@ export interface LoadedRepo {
   history: StarDataPoint[];
 }
 
-export function useRepos() {
+interface UseReposOptions {
+  initialRepos?: LoadedRepo[];
+  initialTheme?: string;
+}
+
+export function useRepos({ initialRepos = [], initialTheme }: UseReposOptions = {}) {
   const [themeId, setThemeId] = useQueryState(
     "theme",
-    parseAsString.withDefault(defaultTheme).withOptions({ history: "replace" })
+    parseAsString
+      .withDefault(initialTheme || defaultTheme)
+      .withOptions({ history: "replace" })
   );
   const [reposParam, setReposParam] = useQueryState(
     "repos",
     parseAsString.withDefault("").withOptions({ history: "replace" })
   );
 
-  const [repos, setRepos] = useState<LoadedRepo[]>([]);
+  const [repos, setRepos] = useState<LoadedRepo[]>(initialRepos);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [initialized, setInitialized] = useState(false);
 
   const theme = themes[themeId] || themes[defaultTheme];
 
@@ -34,38 +40,6 @@ export function useRepos() {
     },
     [setReposParam]
   );
-
-  // Load repos from URL on mount
-  useEffect(() => {
-    if (initialized) return;
-    setInitialized(true);
-    if (!reposParam) return;
-
-    const repoList = reposParam.split(",").filter(Boolean);
-    (async () => {
-      for (const fullName of repoList) {
-        const [owner, repo] = fullName.split("/");
-        if (!owner || !repo) continue;
-        try {
-          const res = await fetch(`/api/stars/${owner}/${repo}`);
-          const data = await res.json();
-          if (res.ok) {
-            setRepos((prev) => {
-              if (
-                prev.some(
-                  (r) =>
-                    r.info.fullName.toLowerCase() ===
-                    `${owner}/${repo}`.toLowerCase()
-                )
-              )
-                return prev;
-              return [...prev, { info: data.info, history: data.history }];
-            });
-          }
-        } catch {}
-      }
-    })();
-  }, [reposParam, initialized]);
 
   const addRepo = useCallback(
     async (owner: string, repo: string) => {
