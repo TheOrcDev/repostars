@@ -2,6 +2,8 @@
 
 Modern, themeable GitHub star history charts. Track and compare repos with beautiful visualizations.
 
+![RepoStars](public/og-image.png)
+
 ## Features
 
 - **15 Themes** — Dark, Light, Neon, Minimal, 8-Bit, Sunset, Ocean, Candy, Forest, Terminal, Lava, Arctic, Copper, Synthwave, Sakura
