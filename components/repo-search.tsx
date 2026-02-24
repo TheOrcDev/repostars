@@ -5,10 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Field,
-  FieldError,
-} from "@/components/ui/field";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Field, FieldError } from "@/components/ui/field";
 
 const repoSchema = z.object({
   repo: z
@@ -66,39 +64,37 @@ export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-2">
-      <div className="flex gap-2">
-        <Controller
-          name="repo"
-          control={form.control}
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid} className="flex-1">
+      <Controller
+        name="repo"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <Field data-invalid={fieldState.invalid}>
+            <ButtonGroup>
               <Input
                 {...field}
                 id={field.name}
                 aria-invalid={fieldState.invalid}
                 placeholder="owner/repo or GitHub URL"
                 disabled={loading}
-                className="h-11"
                 autoComplete="off"
               />
-              {fieldState.invalid && (
-                <FieldError errors={[fieldState.error]} />
-              )}
-            </Field>
-          )}
-        />
-        <Button
-          type="submit"
-          disabled={loading || !form.watch("repo").trim()}
-          className="h-11 px-6"
-        >
-          {loading ? (
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
-          ) : (
-            "Add"
-          )}
-        </Button>
-      </div>
+              <Button
+                type="submit"
+                disabled={loading || !form.watch("repo").trim()}
+              >
+                {loading ? (
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
+                ) : (
+                  "Add"
+                )}
+              </Button>
+            </ButtonGroup>
+            {fieldState.invalid && (
+              <FieldError errors={[fieldState.error]} />
+            )}
+          </Field>
+        )}
+      />
     </form>
   );
 }
