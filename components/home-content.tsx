@@ -2,14 +2,12 @@
 
 import { useRef } from "react";
 import { useRepos } from "@/hooks/use-repos";
-import { Hero } from "@/components/hero";
 import { RepoSearch } from "@/components/repo-search";
 import { RepoChips } from "@/components/repo-chips";
 import { ChartSection } from "@/components/chart-section";
 import { EmptyState } from "@/components/empty-state";
 import { ThemePicker } from "@/components/theme-picker";
 import { ExportBar } from "@/components/export-bar";
-import { Footer } from "@/components/footer";
 
 export function HomeContent() {
   const {
@@ -26,9 +24,7 @@ export function HomeContent() {
   const chartRef = useRef<HTMLDivElement>(null);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12">
-      <Hero />
-
+    <>
       <div className="mb-6">
         <RepoSearch onAdd={addRepo} loading={loading} repoCount={repos.length} />
         {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
@@ -72,8 +68,6 @@ export function HomeContent() {
           theme={theme}
         />
       )}
-
-      <Footer />
-    </main>
+    </>
   );
 }
