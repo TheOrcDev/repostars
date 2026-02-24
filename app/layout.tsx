@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-
+import { Analytics } from "@vercel/analytics/next"
 export const metadata: Metadata = {
   title: {
     default: "RepoStars — GitHub Star History Charts",
@@ -86,6 +86,7 @@ export default function RootLayout({
             </TooltipProvider>
           </ThemeProvider>
         </NuqsAdapter>
+        <Analytics />
       </body>
     </html>
   );
