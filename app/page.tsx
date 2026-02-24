@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useQueryState, parseAsString } from "nuqs";
 import { toPng } from "html-to-image";
 import { StarChart } from "@/components/star-chart";
 import { StarChart8Bit } from "@/components/star-chart-8bit";
@@ -18,42 +19,64 @@ interface LoadedRepo {
 }
 
 export default function Home() {
-  const [themeId, setThemeId] = useState(defaultTheme);
+  const [themeId, setThemeId] = useQueryState(
+    "theme",
+    parseAsString.withDefault(defaultTheme).withOptions({ history: "replace" })
+  );
+  const [reposParam, setReposParam] = useQueryState(
+    "repos",
+    parseAsString.withDefault("").withOptions({ history: "replace" })
+  );
+
   const [repos, setRepos] = useState<LoadedRepo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const theme = themes[themeId];
+  const theme = themes[themeId] || themes[defaultTheme];
 
-  // Load repos and theme from URL on mount
+  // Sync repos state → URL param
+  const updateReposParam = useCallback(
+    (loadedRepos: LoadedRepo[]) => {
+      const value = loadedRepos.map((r) => r.info.fullName).join(",");
+      setReposParam(value || null);
+    },
+    [setReposParam]
+  );
+
+  // Load repos from URL on mount
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlTheme = params.get("theme");
-    if (urlTheme && themes[urlTheme]) setThemeId(urlTheme);
+    if (initialized) return;
+    setInitialized(true);
+    if (!reposParam) return;
 
-    const urlRepos = params.get("repos");
-    if (urlRepos) {
-      const repoList = urlRepos.split(",").filter(Boolean);
-      (async () => {
-        for (const fullName of repoList) {
-          const [owner, repo] = fullName.split("/");
-          if (!owner || !repo) continue;
-          try {
-            const res = await fetch(`/api/stars/${owner}/${repo}`);
-            const data = await res.json();
-            if (res.ok) {
-              setRepos((prev) => {
-                if (prev.some((r) => r.info.fullName.toLowerCase() === `${owner}/${repo}`.toLowerCase())) return prev;
-                return [...prev, { info: data.info, history: data.history }];
-              });
-            }
-          } catch {}
-        }
-      })();
-    }
-  }, []);
+    const repoList = reposParam.split(",").filter(Boolean);
+    (async () => {
+      for (const fullName of repoList) {
+        const [owner, repo] = fullName.split("/");
+        if (!owner || !repo) continue;
+        try {
+          const res = await fetch(`/api/stars/${owner}/${repo}`);
+          const data = await res.json();
+          if (res.ok) {
+            setRepos((prev) => {
+              if (
+                prev.some(
+                  (r) =>
+                    r.info.fullName.toLowerCase() ===
+                    `${owner}/${repo}`.toLowerCase()
+                )
+              )
+                return prev;
+              return [...prev, { info: data.info, history: data.history }];
+            });
+          }
+        } catch {}
+      }
+    })();
+  }, [reposParam, initialized]);
 
   const addRepo = useCallback(
     async (owner: string, repo: string) => {
@@ -80,22 +103,26 @@ export default function Home() {
           return;
         }
 
-        setRepos((prev) => [
-          ...prev,
-          { info: data.info, history: data.history },
-        ]);
+        const updated = [...repos, { info: data.info, history: data.history }];
+        setRepos(updated);
+        updateReposParam(updated);
       } catch {
         setError("Failed to fetch star data");
       } finally {
         setLoading(false);
       }
     },
-    [repos]
+    [repos, updateReposParam]
   );
 
-  const removeRepo = useCallback((name: string) => {
-    setRepos((prev) => prev.filter((r) => r.info.fullName !== name));
-  }, []);
+  const removeRepo = useCallback(
+    (name: string) => {
+      const updated = repos.filter((r) => r.info.fullName !== name);
+      setRepos(updated);
+      updateReposParam(updated);
+    },
+    [repos, updateReposParam]
+  );
 
   const exportPng = useCallback(async () => {
     if (!chartRef.current) return;
@@ -103,13 +130,11 @@ export default function Home() {
       const dataUrl = await toPng(chartRef.current, {
         pixelRatio: 2,
         backgroundColor: theme.background,
-        style: {
-          font: "14px system-ui, sans-serif",
-        },
+        style: { font: "14px system-ui, sans-serif" },
         skipFonts: true,
       });
       const link = document.createElement("a");
-      link.download = `star-history-${repos.map((r) => r.info.fullName.replace("/", "-")).join("_")}.png`;
+      link.download = `repostars-${repos.map((r) => r.info.fullName.replace("/", "-")).join("_")}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -118,17 +143,10 @@ export default function Home() {
   }, [repos, theme]);
 
   const copyLink = useCallback(() => {
-    const url = new URL(window.location.href);
-    url.search = "";
-    url.searchParams.set(
-      "repos",
-      repos.map((r) => r.info.fullName).join(",")
-    );
-    url.searchParams.set("theme", themeId);
-    navigator.clipboard.writeText(url.toString());
+    navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [repos, themeId]);
+  }, []);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
