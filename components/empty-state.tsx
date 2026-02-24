@@ -21,17 +21,17 @@ export function EmptyState({ onAdd, loading }: EmptyStateProps) {
             <p className="mt-2 text-sm">
               Try{" "}
               <button
-                onClick={() => onAdd("facebook", "react")}
+                onClick={() => onAdd("shadcn-ui", "ui")}
                 className="text-primary underline decoration-primary/30 hover:decoration-primary"
               >
-                facebook/react
+                shadcn-ui/ui
               </button>
               {" or "}
               <button
-                onClick={() => onAdd("vercel", "next.js")}
+                onClick={() => onAdd("47ng", "nuqs")}
                 className="text-primary underline decoration-primary/30 hover:decoration-primary"
               >
-                vercel/next.js
+                47ng/nuqs
               </button>
             </p>
           </div>
