@@ -185,13 +185,16 @@ export async function getStarHistory(
 
     if (lastPoint.stars < totalStars && lastPoint.date !== today) {
       // Add interpolated points from last real data to today
+      // Use ease-out curve (growth typically decelerates)
       const gapMs = todayMs - lastMs;
       const gapDays = gapMs / dayMs;
-      const gapBin = gapDays <= 90 ? dayMs * 7 : dayMs * 30;
+      const gapBin = gapDays <= 90 ? dayMs * 7 : dayMs * 14;
       const starGap = totalStars - lastPoint.stars;
 
       for (let ms = lastMs + gapBin; ms < todayMs; ms += gapBin) {
-        const t = (ms - lastMs) / gapMs;
+        const linear = (ms - lastMs) / gapMs; // 0..1
+        // Ease-out cubic: decelerating growth curve
+        const t = 1 - Math.pow(1 - linear, 3);
         const date = new Date(ms).toISOString().split("T")[0];
         interpolated.push({
           date,
