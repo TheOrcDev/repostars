@@ -86,8 +86,10 @@ export async function getStarHistory(
 
   const results: StarDataPoint[] = [];
   const batchSize = IS_AUTHENTICATED ? 10 : 5;
+  let rateLimited = false;
 
   for (let i = 0; i < pagesToFetch.length; i += batchSize) {
+    if (rateLimited) break;
     const batch = pagesToFetch.slice(i, i + batchSize);
     const responses = await Promise.all(
       batch.map(async (page) => {
@@ -95,6 +97,10 @@ export async function getStarHistory(
           `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
           { headers: headers(), next: { revalidate: 21600 } }
         );
+        if (res.status === 403 || res.status === 429) {
+          rateLimited = true;
+          return [];
+        }
         if (!res.ok) return [];
         const data = await res.json();
         return data.map(
@@ -107,6 +113,10 @@ export async function getStarHistory(
       })
     );
     results.push(...responses.flat());
+  }
+
+  if (results.length === 0 && rateLimited) {
+    throw new Error("GitHub API rate limit exceeded. Try again later or add a GITHUB_TOKEN.");
   }
 
   // Sort and deduplicate: keep highest star count per date
