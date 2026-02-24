@@ -1,8 +1,44 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Field,
+  FieldError,
+} from "@/components/ui/field";
+
+const repoSchema = z.object({
+  repo: z
+    .string()
+    .min(1, "Enter a repo")
+    .refine(
+      (val) => {
+        const trimmed = val.trim().replace(/\/$/, "");
+        const urlMatch = trimmed.match(
+          /(?:https?:\/\/)?github\.com\/([^/]+)\/([^/]+)/
+        );
+        const shortMatch = trimmed.match(/^([^/]+)\/([^/]+)$/);
+        return urlMatch || shortMatch;
+      },
+      { message: 'Use "owner/repo" or paste a GitHub URL' }
+    ),
+});
+
+type RepoFormValues = z.infer<typeof repoSchema>;
+
+function parseRepoInput(input: string): { owner: string; repo: string } | null {
+  const trimmed = input.trim().replace(/\/$/, "");
+  const urlMatch = trimmed.match(
+    /(?:https?:\/\/)?github\.com\/([^/]+)\/([^/]+)/
+  );
+  if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2] };
+  const shortMatch = trimmed.match(/^([^/]+)\/([^/]+)$/);
+  if (shortMatch) return { owner: shortMatch[1], repo: shortMatch[2] };
+  return null;
+}
 
 interface RepoSearchProps {
   onAdd: (owner: string, repo: string) => void;
@@ -10,56 +46,50 @@ interface RepoSearchProps {
   repoCount: number;
 }
 
-function parseRepoInput(input: string): { owner: string; repo: string } | null {
-  const trimmed = input.trim().replace(/\/$/, "");
-
-  // Full URL: https://github.com/owner/repo
-  const urlMatch = trimmed.match(
-    /(?:https?:\/\/)?github\.com\/([^/]+)\/([^/]+)/
-  );
-  if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2] };
-
-  // Short form: owner/repo
-  const shortMatch = trimmed.match(/^([^/]+)\/([^/]+)$/);
-  if (shortMatch) return { owner: shortMatch[1], repo: shortMatch[2] };
-
-  return null;
-}
-
 export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
-  const [input, setInput] = useState("");
-  const [error, setError] = useState("");
+  const form = useForm<RepoFormValues>({
+    resolver: zodResolver(repoSchema),
+    defaultValues: { repo: "" },
+  });
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    const parsed = parseRepoInput(input);
-    if (!parsed) {
-      setError('Enter a GitHub repo like "owner/repo" or paste a URL');
-      return;
-    }
+  function onSubmit(data: RepoFormValues) {
     if (repoCount >= 5) {
-      setError("Maximum 5 repos for comparison");
+      form.setError("repo", { message: "Maximum 5 repos for comparison" });
       return;
     }
-    onAdd(parsed.owner, parsed.repo);
-    setInput("");
+    const parsed = parseRepoInput(data.repo);
+    if (parsed) {
+      onAdd(parsed.owner, parsed.repo);
+      form.reset();
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-2">
       <div className="flex gap-2">
-        <Input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="owner/repo or GitHub URL"
-          disabled={loading}
-          className="h-11"
+        <Controller
+          name="repo"
+          control={form.control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid} className="flex-1">
+              <Input
+                {...field}
+                id={field.name}
+                aria-invalid={fieldState.invalid}
+                placeholder="owner/repo or GitHub URL"
+                disabled={loading}
+                className="h-11"
+                autoComplete="off"
+              />
+              {fieldState.invalid && (
+                <FieldError errors={[fieldState.error]} />
+              )}
+            </Field>
+          )}
         />
         <Button
           type="submit"
-          disabled={loading || !input.trim()}
+          disabled={loading || !form.watch("repo").trim()}
           className="h-11 px-6"
         >
           {loading ? (
@@ -69,7 +99,6 @@ export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
           )}
         </Button>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
     </form>
   );
 }
