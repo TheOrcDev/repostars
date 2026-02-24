@@ -4,11 +4,12 @@ Modern, themeable GitHub star history charts. Track and compare repos with beaut
 
 ## Features
 
-- **6 Themes** — Dark, Light, Neon, Minimal, 8-Bit, Warcraft
-- **Compare repos** — Up to 5 repos on the same chart
-- **Smart sampling** — Fast even for repos with 100K+ stars
-- **Shareable links** — Copy link with repos and theme baked in
-- **Export** — SVG and PNG export (coming soon)
+- **15 Themes** — Dark, Light, Neon, Minimal, 8-Bit, Sunset, Ocean, Candy, Forest, Terminal, Lava, Arctic, Copper, Synthwave, Sakura
+- **Compare repos** — Up to 5 repos side-by-side on the same chart
+- **Smart sampling** — Interpolated data with smart binning, fast even for repos with 200K+ stars
+- **Shareable links** — URL params sync via nuqs — copy link with repos and theme baked in
+- **Export PNG** — 2x resolution chart export
+- **24h CDN cache** — Fast repeat loads, no unnecessary GitHub API calls
 
 ## Development
 
@@ -17,13 +18,15 @@ pnpm install
 pnpm dev
 ```
 
-Optionally set `GITHUB_TOKEN` in `.env` for higher API rate limits.
+Set `GITHUB_TOKEN` in `.env.local` for higher API rate limits (5,000/hr vs 60/hr).
 
 ## Tech Stack
 
-- Next.js 15 (App Router)
+- Next.js 16 (App Router)
 - Tailwind CSS v4
+- shadcn/ui
 - Recharts
+- nuqs (URL search params)
 - GitHub REST API
 
 ## License
