@@ -60,15 +60,15 @@ export async function getStarHistory(
   const totalPages = Math.ceil(totalStars / 100);
 
   // For small repos, fetch all pages
-  // For large repos, sample evenly
+  // For large repos, sample evenly across the full range
   let pagesToFetch: number[];
 
-  if (totalPages <= 30) {
-    // Fetch all pages (up to 3K stars)
+  if (totalPages <= 80) {
+    // Fetch all pages (up to 8K stars)
     pagesToFetch = Array.from({ length: totalPages }, (_, i) => i + 1);
   } else {
-    // Sample ~30 pages evenly distributed
-    const sampleCount = 30;
+    // Sample ~80 pages evenly distributed for smooth curves
+    const sampleCount = 80;
     pagesToFetch = Array.from({ length: sampleCount }, (_, i) =>
       Math.max(1, Math.round(((i + 1) / sampleCount) * totalPages))
     );
@@ -78,9 +78,9 @@ export async function getStarHistory(
 
   const results: StarDataPoint[] = [];
 
-  // Fetch in batches of 5 to avoid rate limiting
-  for (let i = 0; i < pagesToFetch.length; i += 5) {
-    const batch = pagesToFetch.slice(i, i + 5);
+  // Fetch in batches of 10 to avoid rate limiting
+  for (let i = 0; i < pagesToFetch.length; i += 10) {
+    const batch = pagesToFetch.slice(i, i + 10);
     const responses = await Promise.all(
       batch.map(async (page) => {
         const res = await fetch(
