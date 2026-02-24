@@ -13,6 +13,7 @@ export interface RepoInfo {
 }
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+const IS_AUTHENTICATED = Boolean(GITHUB_TOKEN);
 
 function headers() {
   const h: Record<string, string> = {
@@ -22,17 +23,26 @@ function headers() {
   return h;
 }
 
+function repoHeaders() {
+  const h: Record<string, string> = {};
+  if (GITHUB_TOKEN) h.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  return h;
+}
+
 export async function getRepoInfo(
   owner: string,
   repo: string
 ): Promise<RepoInfo> {
   const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-    headers: GITHUB_TOKEN
-      ? { Authorization: `Bearer ${GITHUB_TOKEN}` }
-      : undefined,
+    headers: repoHeaders(),
     next: { revalidate: 3600 },
   });
-  if (!res.ok) throw new Error(`Repo not found: ${owner}/${repo}`);
+  if (!res.ok) {
+    if (res.status === 403 || res.status === 429) {
+      throw new Error("GitHub API rate limit exceeded. Try again later.");
+    }
+    throw new Error(`Repo not found: ${owner}/${repo}`);
+  }
   const data = await res.json();
   return {
     owner,
@@ -45,47 +55,45 @@ export async function getRepoInfo(
 }
 
 /**
- * Fetch star history with smart sampling for large repos.
- * GitHub returns 100 stargazers per page with timestamps.
+ * Fetch star history with smart sampling.
+ * Accepts pre-fetched info to avoid double API call.
  */
 export async function getStarHistory(
   owner: string,
-  repo: string
+  repo: string,
+  info?: RepoInfo
 ): Promise<StarDataPoint[]> {
-  const info = await getRepoInfo(owner, repo);
+  if (!info) info = await getRepoInfo(owner, repo);
   const totalStars = info.stars;
 
   if (totalStars === 0) return [];
 
   const totalPages = Math.ceil(totalStars / 100);
 
-  // For small repos, fetch all pages
-  // For large repos, sample evenly across the full range
+  // Adjust sample count based on auth (unauthenticated = 60 req/hr)
+  const maxSample = IS_AUTHENTICATED ? 80 : 30;
+
   let pagesToFetch: number[];
 
-  if (totalPages <= 80) {
-    // Fetch all pages (up to 8K stars)
+  if (totalPages <= maxSample) {
     pagesToFetch = Array.from({ length: totalPages }, (_, i) => i + 1);
   } else {
-    // Sample ~80 pages evenly distributed for smooth curves
-    const sampleCount = 80;
-    pagesToFetch = Array.from({ length: sampleCount }, (_, i) =>
-      Math.max(1, Math.round(((i + 1) / sampleCount) * totalPages))
+    pagesToFetch = Array.from({ length: maxSample }, (_, i) =>
+      Math.max(1, Math.round(((i + 1) / maxSample) * totalPages))
     );
-    // Deduplicate
     pagesToFetch = [...new Set(pagesToFetch)];
   }
 
   const results: StarDataPoint[] = [];
+  const batchSize = IS_AUTHENTICATED ? 10 : 5;
 
-  // Fetch in batches of 10 to avoid rate limiting
-  for (let i = 0; i < pagesToFetch.length; i += 10) {
-    const batch = pagesToFetch.slice(i, i + 10);
+  for (let i = 0; i < pagesToFetch.length; i += batchSize) {
+    const batch = pagesToFetch.slice(i, i + batchSize);
     const responses = await Promise.all(
       batch.map(async (page) => {
         const res = await fetch(
           `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
-          { headers: headers(), next: { revalidate: 21600 } } // 6h cache
+          { headers: headers(), next: { revalidate: 21600 } }
         );
         if (!res.ok) return [];
         const data = await res.json();
@@ -101,10 +109,8 @@ export async function getStarHistory(
     results.push(...responses.flat());
   }
 
-  // Sort sampled points by star count (our ground truth)
+  // Sort and deduplicate: keep highest star count per date
   const sorted = results.sort((a, b) => a.stars - b.stars);
-
-  // Deduplicate: keep highest star count per date
   const byDate = new Map<string, StarDataPoint>();
   for (const point of sorted) {
     byDate.set(point.date, point);
@@ -124,33 +130,28 @@ export async function getStarHistory(
   const dayMs = 86400000;
   let binMs: number;
   const rangeDays = rangeMs / dayMs;
-  if (rangeDays <= 90) binMs = dayMs;             // daily
-  else if (rangeDays <= 365) binMs = dayMs * 7;    // weekly
-  else if (rangeDays <= 365 * 3) binMs = dayMs * 14; // biweekly
-  else binMs = dayMs * 30;                          // monthly
+  if (rangeDays <= 90) binMs = dayMs;
+  else if (rangeDays <= 365) binMs = dayMs * 7;
+  else if (rangeDays <= 365 * 3) binMs = dayMs * 14;
+  else binMs = dayMs * 30;
 
-  // Interpolate: for each bin date, lerp between anchor points
+  // Interpolate between anchor points
   const interpolated: StarDataPoint[] = [];
   for (let ms = startMs; ms <= endMs; ms += binMs) {
     const date = new Date(ms).toISOString().split("T")[0];
 
-    // Find surrounding anchors
-    let lo = anchors[0];
-    let hi = anchors[anchors.length - 1];
-    for (let i = 0; i < anchors.length - 1; i++) {
-      const aMs = new Date(anchors[i].date).getTime();
-      const bMs = new Date(anchors[i + 1].date).getTime();
-      if (aMs <= ms && bMs >= ms) {
-        lo = anchors[i];
-        hi = anchors[i + 1];
-        break;
-      }
+    // Binary search for surrounding anchors
+    let lo = 0, hi = anchors.length - 1;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (new Date(anchors[mid].date).getTime() <= ms) lo = mid;
+      else hi = mid;
     }
 
-    const loMs = new Date(lo.date).getTime();
-    const hiMs = new Date(hi.date).getTime();
+    const loMs = new Date(anchors[lo].date).getTime();
+    const hiMs = new Date(anchors[hi].date).getTime();
     const t = hiMs === loMs ? 1 : (ms - loMs) / (hiMs - loMs);
-    const stars = Math.round(lo.stars + t * (hi.stars - lo.stars));
+    const stars = Math.round(anchors[lo].stars + t * (anchors[hi].stars - anchors[lo].stars));
 
     interpolated.push({ date, stars });
   }

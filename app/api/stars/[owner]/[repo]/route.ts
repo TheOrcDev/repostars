@@ -8,10 +8,8 @@ export async function GET(
   const { owner, repo } = await params;
 
   try {
-    const [info, history] = await Promise.all([
-      getRepoInfo(owner, repo),
-      getStarHistory(owner, repo),
-    ]);
+    const info = await getRepoInfo(owner, repo);
+    const history = await getStarHistory(owner, repo, info);
 
     return NextResponse.json({ info, history }, {
       headers: {
