@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { Suspense, useState, useCallback, useRef, useEffect } from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import { toPng } from "html-to-image";
 import { StarChart } from "@/components/star-chart";
@@ -19,6 +19,14 @@ interface LoadedRepo {
 }
 
 export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
   const [themeId, setThemeId] = useQueryState(
     "theme",
     parseAsString.withDefault(defaultTheme).withOptions({ history: "replace" })
