@@ -101,17 +101,65 @@ export async function getStarHistory(
     results.push(...responses.flat());
   }
 
-  // Sort by date and deduplicate by picking one point per date
-  const byDate = new Map<string, StarDataPoint>();
-  for (const point of results) {
-    // Keep the highest star count per date
-    const existing = byDate.get(point.date);
-    if (!existing || point.stars > existing.stars) {
-      byDate.set(point.date, point);
-    }
-  }
+  // Sort sampled points by star count (our ground truth)
+  const sorted = results.sort((a, b) => a.stars - b.stars);
 
-  return Array.from(byDate.values()).sort(
+  // Deduplicate: keep highest star count per date
+  const byDate = new Map<string, StarDataPoint>();
+  for (const point of sorted) {
+    byDate.set(point.date, point);
+  }
+  const anchors = Array.from(byDate.values()).sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
+
+  if (anchors.length < 2) return anchors;
+
+  // Compute date range
+  const startMs = new Date(anchors[0].date).getTime();
+  const endMs = new Date(anchors[anchors.length - 1].date).getTime();
+  const rangeMs = endMs - startMs;
+
+  // Pick bin size based on range
+  const dayMs = 86400000;
+  let binMs: number;
+  const rangeDays = rangeMs / dayMs;
+  if (rangeDays <= 90) binMs = dayMs;             // daily
+  else if (rangeDays <= 365) binMs = dayMs * 7;    // weekly
+  else if (rangeDays <= 365 * 3) binMs = dayMs * 14; // biweekly
+  else binMs = dayMs * 30;                          // monthly
+
+  // Interpolate: for each bin date, lerp between anchor points
+  const interpolated: StarDataPoint[] = [];
+  for (let ms = startMs; ms <= endMs; ms += binMs) {
+    const date = new Date(ms).toISOString().split("T")[0];
+
+    // Find surrounding anchors
+    let lo = anchors[0];
+    let hi = anchors[anchors.length - 1];
+    for (let i = 0; i < anchors.length - 1; i++) {
+      const aMs = new Date(anchors[i].date).getTime();
+      const bMs = new Date(anchors[i + 1].date).getTime();
+      if (aMs <= ms && bMs >= ms) {
+        lo = anchors[i];
+        hi = anchors[i + 1];
+        break;
+      }
+    }
+
+    const loMs = new Date(lo.date).getTime();
+    const hiMs = new Date(hi.date).getTime();
+    const t = hiMs === loMs ? 1 : (ms - loMs) / (hiMs - loMs);
+    const stars = Math.round(lo.stars + t * (hi.stars - lo.stars));
+
+    interpolated.push({ date, stars });
+  }
+
+  // Always include the last anchor
+  const lastAnchor = anchors[anchors.length - 1];
+  if (interpolated[interpolated.length - 1]?.date !== lastAnchor.date) {
+    interpolated.push(lastAnchor);
+  }
+
+  return interpolated;
 }
