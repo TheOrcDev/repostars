@@ -35,7 +35,7 @@ export async function getRepoInfo(
 ): Promise<RepoInfo> {
   const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
     headers: repoHeaders(),
-    next: { revalidate: 3600 },
+    next: { revalidate: 86400 },
   });
   if (!res.ok) {
     if (res.status === 403 || res.status === 429) {
@@ -95,7 +95,7 @@ export async function getStarHistory(
       batch.map(async (page) => {
         const res = await fetch(
           `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
-          { headers: headers(), next: { revalidate: 21600 } }
+          { headers: headers(), next: { revalidate: 86400 } }
         );
         if (res.status === 403 || res.status === 429) {
           rateLimited = true;
