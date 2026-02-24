@@ -55,7 +55,7 @@ export function HomeContent() {
           theme={theme}
         />
       ) : (
-        <EmptyState onAdd={addRepo} />
+        <EmptyState onAdd={addRepo} loading={loading} />
       )}
 
       <div className="mb-8">

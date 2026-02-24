@@ -72,8 +72,8 @@ export async function getStarHistory(
   const totalPages = Math.ceil(totalStars / 100);
   const fetchablePages = Math.min(totalPages, MAX_GITHUB_PAGES);
 
-  // Adjust sample count based on auth
-  const maxSample = IS_AUTHENTICATED ? 80 : 30;
+  // Adjust sample count — keep it fast enough for Vercel's timeout
+  const maxSample = IS_AUTHENTICATED ? 40 : 20;
 
   let pagesToFetch: number[];
 
@@ -87,7 +87,7 @@ export async function getStarHistory(
   }
 
   const results: StarDataPoint[] = [];
-  const batchSize = IS_AUTHENTICATED ? 10 : 5;
+  const batchSize = IS_AUTHENTICATED ? 20 : 10;
   let rateLimited = false;
 
   for (let i = 0; i < pagesToFetch.length; i += batchSize) {
