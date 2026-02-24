@@ -67,18 +67,21 @@ export async function getStarHistory(
 
   if (totalStars === 0) return [];
 
+  // GitHub caps stargazer API at 400 pages (40,000 stars)
+  const MAX_GITHUB_PAGES = 400;
   const totalPages = Math.ceil(totalStars / 100);
+  const fetchablePages = Math.min(totalPages, MAX_GITHUB_PAGES);
 
-  // Adjust sample count based on auth (unauthenticated = 60 req/hr)
+  // Adjust sample count based on auth
   const maxSample = IS_AUTHENTICATED ? 80 : 30;
 
   let pagesToFetch: number[];
 
-  if (totalPages <= maxSample) {
-    pagesToFetch = Array.from({ length: totalPages }, (_, i) => i + 1);
+  if (fetchablePages <= maxSample) {
+    pagesToFetch = Array.from({ length: fetchablePages }, (_, i) => i + 1);
   } else {
     pagesToFetch = Array.from({ length: maxSample }, (_, i) =>
-      Math.max(1, Math.round(((i + 1) / maxSample) * totalPages))
+      Math.max(1, Math.round(((i + 1) / maxSample) * fetchablePages))
     );
     pagesToFetch = [...new Set(pagesToFetch)];
   }
@@ -169,6 +172,26 @@ export async function getStarHistory(
   const lastAnchor = anchors[anchors.length - 1];
   if (interpolated[interpolated.length - 1]?.date !== lastAnchor.date) {
     interpolated.push(lastAnchor);
+  }
+
+  // For repos > 40k stars, we only have data up to ~40k from the API.
+  // Scale the curve proportionally to match the actual total star count,
+  // and extend to today's date.
+  if (totalStars > MAX_GITHUB_PAGES * 100 && interpolated.length > 0) {
+    const maxFetched = Math.max(...interpolated.map((p) => p.stars));
+    if (maxFetched > 0 && maxFetched < totalStars) {
+      const scale = totalStars / maxFetched;
+      for (const point of interpolated) {
+        point.stars = Math.round(point.stars * scale);
+      }
+      // Add a final point at today with the actual star count
+      const today = new Date().toISOString().split("T")[0];
+      if (interpolated[interpolated.length - 1].date !== today) {
+        interpolated.push({ date: today, stars: totalStars });
+      } else {
+        interpolated[interpolated.length - 1].stars = totalStars;
+      }
+    }
   }
 
   return interpolated;
