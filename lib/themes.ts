@@ -69,16 +69,16 @@ export const themes: Record<string, ChartTheme> = {
   "8bit": {
     id: "8bit",
     name: "8-Bit Atari",
-    // Atari-inspired CRT palette (deep navy + neon accents)
-    background: "#0b1026",
-    gridColor: "#1b2552",
-    textColor: "#9bb2ff",
-    axisColor: "#324089",
-    lineColors: ["#00e5ff", "#ff5ea8", "#ffd166", "#8cff66", "#7c5cff"],
-    tooltipBg: "#121a3a",
-    tooltipBorder: "#00e5ff",
-    tooltipText: "#e8f0ff",
-    areaOpacity: 0.16,
+    // Closer to 8bitcn Atari theme: dark CRT base + amber primary + purple accent
+    background: "#1e1e1e",
+    gridColor: "#3a3a3a",
+    textColor: "#f5e6c8",
+    axisColor: "#6a6a6a",
+    lineColors: ["#ffb703", "#fb8500", "#8338ec", "#ff006e", "#ffd166"],
+    tooltipBg: "#2a2a2a",
+    tooltipBorder: "#ffb703",
+    tooltipText: "#fff3d6",
+    areaOpacity: 0.14,
     fontFamily: "'Press Start 2P', monospace",
   },
   sunset: {
