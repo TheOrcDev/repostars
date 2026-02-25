@@ -15,13 +15,24 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   if (repos) params.set("repos", repos);
   if (theme) params.set("theme", theme);
 
+  const repoList = repos
+    ? repos.split(",").filter(Boolean).slice(0, 3)
+    : [];
+  const repoText = repoList.length > 0 ? repoList.join(" · ") : "GitHub repositories";
+
   const ogUrl = params.toString()
     ? `/api/og?${params.toString()}`
     : "/og-image.png";
 
   return {
+    title: repoList.length > 0
+      ? `RepoStars — ${repoText}`
+      : "RepoStars — GitHub Star History Charts",
+    description: repoList.length > 0
+      ? `Compare star history for ${repoText} on RepoStars.${theme ? ` Theme: ${theme}.` : ""}`
+      : "Track, compare, and visualize GitHub star history with beautiful themeable charts.",
     openGraph: {
-      images: [{ url: ogUrl, width: 1200, height: 630, alt: "RepoStars" }],
+      images: [{ url: ogUrl, width: 1200, height: 630, alt: `RepoStars — ${repoText}` }],
     },
     twitter: {
       card: "summary_large_image",
