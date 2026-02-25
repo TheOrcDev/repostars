@@ -60,7 +60,7 @@ export const themes: Record<string, ChartTheme> = {
     gridColor: "transparent",
     textColor: "#999",
     axisColor: "#ddd",
-    lineColors: ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#9333ea"],
+    lineColors: ["#000000", "#2563eb", "#dc2626", "#16a34a", "#9333ea"],
     tooltipBg: "#fff",
     tooltipBorder: "#eee",
     tooltipText: "#000",
