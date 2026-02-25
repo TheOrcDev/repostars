@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { toPng } from "html-to-image";
 import { Check, Copy, ShareNetwork } from "@phosphor-icons/react";
+import { toPng } from "html-to-image";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,7 +22,9 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
   const [embedCopied, setEmbedCopied] = useState(false);
 
   const embedCode = useMemo(() => {
-    if (repoNames.length === 0) return "";
+    if (repoNames.length === 0) {
+      return "";
+    }
     const repo = repoNames[0];
     const themeId = theme.id || "dark";
     const img = `https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
@@ -31,7 +33,9 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
   }, [repoNames, theme.id]);
 
   const exportPng = useCallback(async () => {
-    if (!chartRef.current) return;
+    if (!chartRef.current) {
+      return;
+    }
     try {
       const dataUrl = await toPng(chartRef.current, {
         pixelRatio: 2,
@@ -55,11 +59,17 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
   const shareOnX = useCallback(() => {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent("Compare GitHub stars with RepoStars");
-    window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, "_blank", "noopener,noreferrer");
+    window.open(
+      `https://x.com/intent/tweet?text=${text}&url=${url}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }, []);
 
   const copyReadmeEmbed = useCallback(() => {
-    if (!embedCode) return;
+    if (!embedCode) {
+      return;
+    }
     navigator.clipboard.writeText(embedCode);
     setEmbedCopied(true);
     setTimeout(() => setEmbedCopied(false), 2000);
@@ -68,18 +78,20 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
   return (
     <div className="space-y-3">
       <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Share
         </p>
         <div className="flex flex-wrap gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Share options">
+              <Button aria-label="Share options" size="icon" variant="outline">
                 <ShareNetwork size={16} weight="bold" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={exportPng}>Export PNG</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPng}>
+                Export PNG
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={copyLink}>Copy URL</DropdownMenuItem>
               <DropdownMenuItem onClick={shareOnX}>Share on X</DropdownMenuItem>
             </DropdownMenuContent>
@@ -89,15 +101,24 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
 
       {embedCode && (
         <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
             README Embed
           </p>
           <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
-            <code className="truncate font-mono text-xs text-muted-foreground">
+            <code className="truncate font-mono text-muted-foreground text-xs">
               {embedCode}
             </code>
-            <Button variant="ghost" size="icon" onClick={copyReadmeEmbed} aria-label="Copy README embed code">
-              {embedCopied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
+            <Button
+              aria-label="Copy README embed code"
+              onClick={copyReadmeEmbed}
+              size="icon"
+              variant="ghost"
+            >
+              {embedCopied ? (
+                <Check size={16} weight="bold" />
+              ) : (
+                <Copy size={16} weight="bold" />
+              )}
             </Button>
           </div>
         </div>

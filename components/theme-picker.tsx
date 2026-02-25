@@ -1,7 +1,7 @@
 "use client";
 
-import { themes, type ChartTheme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
+import { type ChartTheme, themes } from "@/lib/themes";
 
 interface ThemePickerProps {
   current: string;
@@ -13,11 +13,11 @@ export function ThemePicker({ current, onChange }: ThemePickerProps) {
     <div className="flex flex-wrap gap-2">
       {Object.values(themes).map((theme: ChartTheme) => (
         <Button
+          className="gap-2"
           key={theme.id}
           onClick={() => onChange(theme.id)}
-          variant={current === theme.id ? "default" : "outline"}
           size="sm"
-          className="gap-2"
+          variant={current === theme.id ? "default" : "outline"}
         >
           <span
             className="h-3 w-3 rounded-full"

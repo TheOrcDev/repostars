@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { useQueryState, parseAsString } from "nuqs";
-import { themes, defaultTheme } from "@/lib/themes";
-import type { StarDataPoint, RepoInfo } from "@/lib/github";
+import { parseAsString, useQueryState } from "nuqs";
+import { useCallback, useEffect, useState } from "react";
+import type { RepoInfo, StarDataPoint } from "@/lib/github";
+import { defaultTheme, themes } from "@/lib/themes";
 
 export interface LoadedRepo {
-  info: RepoInfo;
   history: StarDataPoint[];
+  info: RepoInfo;
 }
 
 interface UseReposOptions {
   initialRepos?: LoadedRepo[];
-  initialTheme?: string;
   initialReposParam?: string;
+  initialTheme?: string;
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -24,12 +24,18 @@ function cacheKey(fullName: string) {
 }
 
 function readCachedRepo(fullName: string): LoadedRepo | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") {
+    return null;
+  }
   try {
     const raw = localStorage.getItem(cacheKey(fullName));
-    if (!raw) return null;
+    if (!raw) {
+      return null;
+    }
     const parsed = JSON.parse(raw) as { ts: number; data: LoadedRepo };
-    if (!parsed?.ts || Date.now() - parsed.ts > CACHE_TTL_MS) return null;
+    if (!parsed?.ts || Date.now() - parsed.ts > CACHE_TTL_MS) {
+      return null;
+    }
     return parsed.data;
   } catch {
     return null;
@@ -37,7 +43,9 @@ function readCachedRepo(fullName: string): LoadedRepo | null {
 }
 
 function writeCachedRepo(repo: LoadedRepo) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    return;
+  }
   try {
     localStorage.setItem(
       cacheKey(repo.info.fullName),
@@ -59,7 +67,9 @@ export function useRepos({
   );
   const [reposParam, setReposParam] = useQueryState(
     "repos",
-    parseAsString.withDefault(initialReposParam).withOptions({ history: "replace" })
+    parseAsString
+      .withDefault(initialReposParam)
+      .withOptions({ history: "replace" })
   );
 
   const [repos, setRepos] = useState<LoadedRepo[]>(initialRepos);
@@ -80,14 +90,18 @@ export function useRepos({
   const mergeRepos = useCallback((next: LoadedRepo[]) => {
     setRepos((prev) => {
       const map = new Map(prev.map((r) => [r.info.fullName.toLowerCase(), r]));
-      for (const repo of next) map.set(repo.info.fullName.toLowerCase(), repo);
+      for (const repo of next) {
+        map.set(repo.info.fullName.toLowerCase(), repo);
+      }
       return Array.from(map.values());
     });
   }, []);
 
   // Instant render from local cache, then refresh from network.
   useEffect(() => {
-    if (loadedFromUrl) return;
+    if (loadedFromUrl) {
+      return;
+    }
     if (!reposParam) {
       setLoadedFromUrl(true);
       return;
@@ -99,7 +113,9 @@ export function useRepos({
     const cached = repoList
       .map((name) => readCachedRepo(name))
       .filter((r): r is LoadedRepo => Boolean(r));
-    if (cached.length > 0) mergeRepos(cached);
+    if (cached.length > 0) {
+      mergeRepos(cached);
+    }
 
     // 2) Refresh in background (and fill misses)
     (async () => {
@@ -108,12 +124,19 @@ export function useRepos({
         const fetched = await Promise.all(
           repoList.map(async (fullName) => {
             const [owner, repo] = fullName.split("/");
-            if (!owner || !repo) return null;
+            if (!(owner && repo)) {
+              return null;
+            }
             try {
               const res = await fetch(`/api/stars/${owner}/${repo}`);
               const data = await res.json();
-              if (!res.ok) return null;
-              const loaded: LoadedRepo = { info: data.info, history: data.history };
+              if (!res.ok) {
+                return null;
+              }
+              const loaded: LoadedRepo = {
+                info: data.info,
+                history: data.history,
+              };
               writeCachedRepo(loaded);
               return loaded;
             } catch {

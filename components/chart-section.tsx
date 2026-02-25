@@ -3,13 +3,13 @@
 import { forwardRef } from "react";
 import { StarChart } from "@/components/star-chart";
 import { StarChart8Bit } from "@/components/star-chart-8bit";
-import type { ChartTheme } from "@/lib/themes";
 import type { LoadedRepo } from "@/hooks/use-repos";
+import type { ChartTheme } from "@/lib/themes";
 
 interface ChartSectionProps {
   repos: LoadedRepo[];
-  themeId: string;
   theme: ChartTheme;
+  themeId: string;
 }
 
 export const ChartSection = forwardRef<HTMLDivElement, ChartSectionProps>(

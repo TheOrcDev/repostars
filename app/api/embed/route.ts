@@ -1,10 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getRepoDataCached } from "@/lib/repo-cache";
-import { themes, defaultTheme } from "@/lib/themes";
+import { defaultTheme, themes } from "@/lib/themes";
 
 function formatStars(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`;
+  }
+  if (n >= 1000) {
+    return `${(n / 1000).toFixed(1)}k`;
+  }
   return n.toString();
 }
 
@@ -13,12 +17,14 @@ function esc(text: string) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
 
 function buildSparkline(values: number[], width: number, height: number) {
-  if (values.length < 2) return { line: "", area: "" };
+  if (values.length < 2) {
+    return { line: "", area: "" };
+  }
   const min = 0;
   const max = Math.max(...values);
   const range = Math.max(1, max - min);
@@ -42,7 +48,7 @@ export async function GET(req: NextRequest) {
   const themeId = searchParams.get("theme") || defaultTheme;
 
   const [owner, name] = repo.split("/");
-  if (!owner || !name) {
+  if (!(owner && name)) {
     return new NextResponse("Missing repo=owner/repo", { status: 400 });
   }
 

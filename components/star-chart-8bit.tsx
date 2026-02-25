@@ -2,21 +2,21 @@
 
 import { forwardRef } from "react";
 import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   Area,
   AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { type ChartTheme } from "@/lib/themes";
-import { type StarDataPoint } from "@/lib/github";
 import { BitCard } from "@/components/ui/bit-card";
+import type { StarDataPoint } from "@/lib/github";
+import type { ChartTheme } from "@/lib/themes";
 
 interface RepoData {
-  name: string;
   data: StarDataPoint[];
+  name: string;
 }
 
 interface StarChart8BitProps {
@@ -30,25 +30,39 @@ function formatDate(dateStr: string) {
 }
 
 function formatStars(n: number) {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  if (n >= 1000) {
+    return `${(n / 1000).toFixed(1)}k`;
+  }
   return n.toString();
 }
 
 function interpolateAt(data: StarDataPoint[], dateMs: number): number {
-  if (data.length === 0) return 0;
+  if (data.length === 0) {
+    return 0;
+  }
   const firstMs = new Date(data[0].date).getTime();
   const lastMs = new Date(data[data.length - 1].date).getTime();
-  if (dateMs <= firstMs) return data[0].stars;
-  if (dateMs >= lastMs) return data[data.length - 1].stars;
-  let lo = 0, hi = data.length - 1;
+  if (dateMs <= firstMs) {
+    return data[0].stars;
+  }
+  if (dateMs >= lastMs) {
+    return data[data.length - 1].stars;
+  }
+  let lo = 0,
+    hi = data.length - 1;
   while (lo < hi - 1) {
     const mid = (lo + hi) >> 1;
-    if (new Date(data[mid].date).getTime() <= dateMs) lo = mid;
-    else hi = mid;
+    if (new Date(data[mid].date).getTime() <= dateMs) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
   }
   const loMs = new Date(data[lo].date).getTime();
   const hiMs = new Date(data[hi].date).getTime();
-  if (hiMs === loMs) return data[lo].stars;
+  if (hiMs === loMs) {
+    return data[lo].stars;
+  }
   const t = (dateMs - loMs) / (hiMs - loMs);
   return Math.round(data[lo].stars + t * (data[hi].stars - data[lo].stars));
 }
@@ -60,12 +74,17 @@ function mergeData(repos: RepoData[]) {
       [repos[0].name]: d.stars,
     }));
   }
-  let globalMin = Infinity, globalMax = -Infinity;
+  let globalMin = Number.POSITIVE_INFINITY,
+    globalMax = Number.NEGATIVE_INFINITY;
   for (const repo of repos) {
     for (const point of repo.data) {
       const ms = new Date(point.date).getTime();
-      if (ms < globalMin) globalMin = ms;
-      if (ms > globalMax) globalMax = ms;
+      if (ms < globalMin) {
+        globalMin = ms;
+      }
+      if (ms > globalMax) {
+        globalMax = ms;
+      }
     }
   }
   const pointCount = 200;
@@ -82,15 +101,24 @@ function mergeData(repos: RepoData[]) {
 }
 
 /* Pixel-art tooltip */
-function PixelTooltip({ active, payload, label, theme }: {
+function PixelTooltip({
+  active,
+  payload,
+  label,
+  theme,
+}: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: string;
   theme: ChartTheme;
 }) {
-  if (!active || !payload?.length) return null;
+  if (!(active && payload?.length)) {
+    return null;
+  }
   const dateStr = new Date(label as string).toLocaleDateString("en-US", {
-    month: "long", day: "numeric", year: "numeric",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   });
   return (
     <div
@@ -105,28 +133,48 @@ function PixelTooltip({ active, payload, label, theme }: {
       }}
     >
       {/* Outer pixel border */}
-      <div style={{
-        border: `4px solid ${theme.tooltipBorder}`,
-        padding: "8px 10px",
-        position: "relative",
-      }}>
+      <div
+        style={{
+          border: `4px solid ${theme.tooltipBorder}`,
+          padding: "8px 10px",
+          position: "relative",
+        }}
+      >
         {/* Inner pixel edge */}
-        <div style={{
-          position: "absolute",
-          top: -4, left: -4, right: -4, bottom: -4,
-          border: `2px solid ${theme.background}`,
-          pointerEvents: "none",
-        }} />
+        <div
+          style={{
+            position: "absolute",
+            top: -4,
+            left: -4,
+            right: -4,
+            bottom: -4,
+            border: `2px solid ${theme.background}`,
+            pointerEvents: "none",
+          }}
+        />
         <div style={{ marginBottom: 6, opacity: 0.7 }}>{dateStr}</div>
         {payload.map((entry) => (
-          <div key={entry.name} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-            <span style={{
-              display: "inline-block",
-              width: 8, height: 8,
-              background: entry.color,
-              imageRendering: "pixelated",
-            }} />
-            <span>{entry.name}: {formatStars(entry.value)}</span>
+          <div
+            key={entry.name}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 2,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 8,
+                height: 8,
+                background: entry.color,
+                imageRendering: "pixelated",
+              }}
+            />
+            <span>
+              {entry.name}: {formatStars(entry.value)}
+            </span>
           </div>
         ))}
       </div>
@@ -168,105 +216,156 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
             position: "relative",
           }}
         >
-        {/* Legend */}
-        <div style={{
-          display: "flex",
-          gap: 16,
-          marginBottom: 12,
-          fontSize: 8,
-          color: theme.textColor,
-        }}>
-          {repoNames.map((name, i) => (
-            <div key={name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{
-                display: "inline-block",
-                width: 10, height: 10,
-                background: theme.lineColors[i % theme.lineColors.length],
-                border: `2px solid ${theme.background}`,
-                outline: `1px solid ${theme.lineColors[i % theme.lineColors.length]}`,
-              }} />
-              <span>{name}</span>
-            </div>
-          ))}
-        </div>
-
-        <ResponsiveContainer width="100%" height={400}>
-          <AreaChart data={merged} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
-            <defs>
-              {repoNames.map((name, i) => (
-                <linearGradient key={name} id={`8bit-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={theme.lineColors[i % theme.lineColors.length]} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={theme.lineColors[i % theme.lineColors.length]} stopOpacity={0.02} />
-                </linearGradient>
-              ))}
-              {/* Pixel grid pattern */}
-              <pattern id="pixel-grid" width="8" height="8" patternUnits="userSpaceOnUse">
-                <rect width="8" height="8" fill="none" />
-                <rect width="1" height="1" x="0" y="0" fill={theme.gridColor} opacity="0.3" />
-              </pattern>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="4 4"
-              stroke={theme.gridColor}
-              vertical={false}
-              strokeWidth={2}
-            />
-            <XAxis
-              dataKey="date"
-              stroke={theme.axisColor}
-              tick={{ fill: theme.textColor, fontSize: 7, fontFamily: "'Press Start 2P', monospace" }}
-              tickFormatter={formatDate}
-              tickLine={false}
-              minTickGap={80}
-              strokeWidth={2}
-            />
-            <YAxis
-              stroke={theme.axisColor}
-              tick={{ fill: theme.textColor, fontSize: 7, fontFamily: "'Press Start 2P', monospace" }}
-              tickFormatter={formatStars}
-              tickLine={false}
-              axisLine={false}
-              width={55}
-              strokeWidth={2}
-            />
-            <Tooltip
-              content={<PixelTooltip theme={theme} />}
-            />
+          {/* Legend */}
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              marginBottom: 12,
+              fontSize: 8,
+              color: theme.textColor,
+            }}
+          >
             {repoNames.map((name, i) => (
-              <Area
+              <div
                 key={name}
-                type="stepAfter"
-                dataKey={name}
-                stroke={theme.lineColors[i % theme.lineColors.length]}
-                strokeWidth={3}
-                fill={`url(#8bit-grad-${i})`}
-                dot={false}
-                activeDot={{
-                  r: 5,
-                  fill: theme.lineColors[i % theme.lineColors.length],
-                  stroke: theme.background,
-                  strokeWidth: 3,
-                  style: { filter: `drop-shadow(0 0 4px ${theme.lineColors[i % theme.lineColors.length]})` },
-                }}
-              />
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 10,
+                    height: 10,
+                    background: theme.lineColors[i % theme.lineColors.length],
+                    border: `2px solid ${theme.background}`,
+                    outline: `1px solid ${theme.lineColors[i % theme.lineColors.length]}`,
+                  }}
+                />
+                <span>{name}</span>
+              </div>
             ))}
-          </AreaChart>
-        </ResponsiveContainer>
+          </div>
 
-        {/* Scanline overlay for extra retro feel */}
-        <div style={{
-          position: "absolute",
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: `repeating-linear-gradient(
+          <ResponsiveContainer height={400} width="100%">
+            <AreaChart
+              data={merged}
+              margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
+            >
+              <defs>
+                {repoNames.map((name, i) => (
+                  <linearGradient
+                    id={`8bit-grad-${i}`}
+                    key={name}
+                    x1="0"
+                    x2="0"
+                    y1="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor={theme.lineColors[i % theme.lineColors.length]}
+                      stopOpacity={0.3}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={theme.lineColors[i % theme.lineColors.length]}
+                      stopOpacity={0.02}
+                    />
+                  </linearGradient>
+                ))}
+                {/* Pixel grid pattern */}
+                <pattern
+                  height="8"
+                  id="pixel-grid"
+                  patternUnits="userSpaceOnUse"
+                  width="8"
+                >
+                  <rect fill="none" height="8" width="8" />
+                  <rect
+                    fill={theme.gridColor}
+                    height="1"
+                    opacity="0.3"
+                    width="1"
+                    x="0"
+                    y="0"
+                  />
+                </pattern>
+              </defs>
+              <CartesianGrid
+                stroke={theme.gridColor}
+                strokeDasharray="4 4"
+                strokeWidth={2}
+                vertical={false}
+              />
+              <XAxis
+                dataKey="date"
+                minTickGap={80}
+                stroke={theme.axisColor}
+                strokeWidth={2}
+                tick={{
+                  fill: theme.textColor,
+                  fontSize: 7,
+                  fontFamily: "'Press Start 2P', monospace",
+                }}
+                tickFormatter={formatDate}
+                tickLine={false}
+              />
+              <YAxis
+                axisLine={false}
+                stroke={theme.axisColor}
+                strokeWidth={2}
+                tick={{
+                  fill: theme.textColor,
+                  fontSize: 7,
+                  fontFamily: "'Press Start 2P', monospace",
+                }}
+                tickFormatter={formatStars}
+                tickLine={false}
+                width={55}
+              />
+              <Tooltip content={<PixelTooltip theme={theme} />} />
+              {repoNames.map((name, i) => (
+                <Area
+                  activeDot={{
+                    r: 5,
+                    fill: theme.lineColors[i % theme.lineColors.length],
+                    stroke: theme.background,
+                    strokeWidth: 3,
+                    style: {
+                      filter: `drop-shadow(0 0 4px ${theme.lineColors[i % theme.lineColors.length]})`,
+                    },
+                  }}
+                  dataKey={name}
+                  dot={false}
+                  fill={`url(#8bit-grad-${i})`}
+                  key={name}
+                  stroke={theme.lineColors[i % theme.lineColors.length]}
+                  strokeWidth={3}
+                  type="stepAfter"
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+
+          {/* Scanline overlay for extra retro feel */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: `repeating-linear-gradient(
             0deg,
             transparent,
             transparent 2px,
             ${theme.background}22 2px,
             ${theme.background}22 4px
           )`,
-          pointerEvents: "none",
-          opacity: 0.3,
-        }} />
+              pointerEvents: "none",
+              opacity: 0.3,
+            }}
+          />
         </BitCard>
       </div>
     );

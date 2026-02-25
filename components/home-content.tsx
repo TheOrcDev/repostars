@@ -1,21 +1,25 @@
 "use client";
 
 import { useRef } from "react";
-import { useRepos, type LoadedRepo } from "@/hooks/use-repos";
-import { RepoSearch } from "@/components/repo-search";
-import { RepoChips } from "@/components/repo-chips";
 import { ChartSection } from "@/components/chart-section";
 import { EmptyState } from "@/components/empty-state";
-import { ThemePicker } from "@/components/theme-picker";
 import { ExportBar } from "@/components/export-bar";
+import { RepoChips } from "@/components/repo-chips";
+import { RepoSearch } from "@/components/repo-search";
+import { ThemePicker } from "@/components/theme-picker";
+import { type LoadedRepo, useRepos } from "@/hooks/use-repos";
 
 interface HomeContentProps {
   initialRepos?: LoadedRepo[];
-  initialTheme?: string;
   initialReposParam?: string;
+  initialTheme?: string;
 }
 
-export function HomeContent({ initialRepos = [], initialTheme, initialReposParam = "" }: HomeContentProps) {
+export function HomeContent({
+  initialRepos = [],
+  initialTheme,
+  initialReposParam = "",
+}: HomeContentProps) {
   const {
     repos,
     loading,
@@ -32,19 +36,23 @@ export function HomeContent({ initialRepos = [], initialTheme, initialReposParam
   return (
     <>
       <div className="mb-6">
-        <RepoSearch onAdd={addRepo} loading={loading} repoCount={repos.length} />
-        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+        <RepoSearch
+          loading={loading}
+          onAdd={addRepo}
+          repoCount={repos.length}
+        />
+        {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
       </div>
 
       {repos.length > 0 && (
         <div className="mb-4">
           <RepoChips
+            onRemove={removeRepo}
             repos={repos.map((r) => ({
               name: r.info.fullName,
               stars: r.info.stars,
             }))}
             themeId={themeId}
-            onRemove={removeRepo}
           />
         </div>
       )}
@@ -53,15 +61,15 @@ export function HomeContent({ initialRepos = [], initialTheme, initialReposParam
         <ChartSection
           ref={chartRef}
           repos={repos}
-          themeId={themeId}
           theme={theme}
+          themeId={themeId}
         />
       ) : (
-        <EmptyState onAdd={addRepo} loading={loading} />
+        <EmptyState loading={loading} onAdd={addRepo} />
       )}
 
       <div className="mb-8">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
           Theme
         </p>
         <ThemePicker current={themeId} onChange={setThemeId} />

@@ -1,16 +1,16 @@
 export interface ChartTheme {
-  id: string;
-  name: string;
-  background: string;
-  gridColor: string;
-  textColor: string;
+  areaOpacity: number;
   axisColor: string;
+  background: string;
+  fontFamily?: string;
+  gridColor: string;
+  id: string;
   lineColors: string[];
+  name: string;
+  textColor: string;
   tooltipBg: string;
   tooltipBorder: string;
   tooltipText: string;
-  areaOpacity: number;
-  fontFamily?: string;
 }
 
 export const themes: Record<string, ChartTheme> = {

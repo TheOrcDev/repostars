@@ -4,12 +4,12 @@ export interface StarDataPoint {
 }
 
 export interface RepoInfo {
+  description: string;
+  fullName: string;
+  language: string | null;
   owner: string;
   repo: string;
-  fullName: string;
-  description: string;
   stars: number;
-  language: string | null;
 }
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
@@ -19,13 +19,17 @@ function headers() {
   const h: Record<string, string> = {
     Accept: "application/vnd.github.star+json",
   };
-  if (GITHUB_TOKEN) h.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  if (GITHUB_TOKEN) {
+    h.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  }
   return h;
 }
 
 function repoHeaders() {
   const h: Record<string, string> = {};
-  if (GITHUB_TOKEN) h.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  if (GITHUB_TOKEN) {
+    h.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  }
   return h;
 }
 
@@ -62,10 +66,14 @@ export async function getStarHistory(
   repo: string,
   info?: RepoInfo
 ): Promise<StarDataPoint[]> {
-  if (!info) info = await getRepoInfo(owner, repo);
+  if (!info) {
+    info = await getRepoInfo(owner, repo);
+  }
   const totalStars = info.stars;
 
-  if (totalStars === 0) return [];
+  if (totalStars === 0) {
+    return [];
+  }
 
   // GitHub caps stargazer API at 400 pages (40,000 stars)
   const MAX_GITHUB_PAGES = 400;
@@ -93,8 +101,12 @@ export async function getStarHistory(
         `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
         { headers: headers() }
       );
-      if (res.status === 403 || res.status === 429) return { rateLimited: true, data: [] };
-      if (!res.ok) return { rateLimited: false, data: [] };
+      if (res.status === 403 || res.status === 429) {
+        return { rateLimited: true, data: [] };
+      }
+      if (!res.ok) {
+        return { rateLimited: false, data: [] };
+      }
       const data = await res.json();
       return {
         rateLimited: false,
@@ -112,12 +124,16 @@ export async function getStarHistory(
   const results: StarDataPoint[] = [];
   let rateLimited = false;
   for (const r of responses) {
-    if (r.rateLimited) rateLimited = true;
+    if (r.rateLimited) {
+      rateLimited = true;
+    }
     results.push(...r.data);
   }
 
   if (results.length === 0 && rateLimited) {
-    throw new Error("GitHub API rate limit exceeded. Try again later or add a GITHUB_TOKEN.");
+    throw new Error(
+      "GitHub API rate limit exceeded. Try again later or add a GITHUB_TOKEN."
+    );
   }
 
   // Sort and deduplicate: keep highest star count per date
@@ -130,7 +146,9 @@ export async function getStarHistory(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  if (anchors.length < 2) return anchors;
+  if (anchors.length < 2) {
+    return anchors;
+  }
 
   // Compute date range
   const startMs = new Date(anchors[0].date).getTime();
@@ -138,13 +156,18 @@ export async function getStarHistory(
   const rangeMs = endMs - startMs;
 
   // Pick bin size based on range
-  const dayMs = 86400000;
+  const dayMs = 86_400_000;
   let binMs: number;
   const rangeDays = rangeMs / dayMs;
-  if (rangeDays <= 90) binMs = dayMs;
-  else if (rangeDays <= 365) binMs = dayMs * 7;
-  else if (rangeDays <= 365 * 3) binMs = dayMs * 14;
-  else binMs = dayMs * 30;
+  if (rangeDays <= 90) {
+    binMs = dayMs;
+  } else if (rangeDays <= 365) {
+    binMs = dayMs * 7;
+  } else if (rangeDays <= 365 * 3) {
+    binMs = dayMs * 14;
+  } else {
+    binMs = dayMs * 30;
+  }
 
   // Interpolate between anchor points
   const interpolated: StarDataPoint[] = [];
@@ -152,17 +175,23 @@ export async function getStarHistory(
     const date = new Date(ms).toISOString().split("T")[0];
 
     // Binary search for surrounding anchors
-    let lo = 0, hi = anchors.length - 1;
+    let lo = 0,
+      hi = anchors.length - 1;
     while (lo < hi - 1) {
       const mid = (lo + hi) >> 1;
-      if (new Date(anchors[mid].date).getTime() <= ms) lo = mid;
-      else hi = mid;
+      if (new Date(anchors[mid].date).getTime() <= ms) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
     }
 
     const loMs = new Date(anchors[lo].date).getTime();
     const hiMs = new Date(anchors[hi].date).getTime();
     const t = hiMs === loMs ? 1 : (ms - loMs) / (hiMs - loMs);
-    const stars = Math.round(anchors[lo].stars + t * (anchors[hi].stars - anchors[lo].stars));
+    const stars = Math.round(
+      anchors[lo].stars + t * (anchors[hi].stars - anchors[lo].stars)
+    );
 
     interpolated.push({ date, stars });
   }
@@ -204,7 +233,10 @@ export async function getStarHistory(
           1,
           Math.floor((totalStars - prev) / (steps - i + 2))
         );
-        const next = Math.min(totalStars - 1, Math.max(Math.floor(raw), prev + minRemainingStep));
+        const next = Math.min(
+          totalStars - 1,
+          Math.max(Math.floor(raw), prev + minRemainingStep)
+        );
         prev = next;
 
         const date = new Date(ms).toISOString().split("T")[0];

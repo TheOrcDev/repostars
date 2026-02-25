@@ -29,7 +29,10 @@ export function ChartSkeleton() {
         <div className="mb-2 h-3 w-12 animate-pulse rounded bg-muted" />
         <div className="flex flex-wrap gap-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-8 w-20 animate-pulse rounded-md bg-muted" />
+            <div
+              className="h-8 w-20 animate-pulse rounded-md bg-muted"
+              key={i}
+            />
           ))}
         </div>
       </div>

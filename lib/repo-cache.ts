@@ -1,10 +1,10 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { getRepoInfo, getStarHistory } from "@/lib/github";
 import type { RepoInfo, StarDataPoint } from "@/lib/github";
+import { getRepoInfo, getStarHistory } from "@/lib/github";
 
 export interface RepoData {
-  info: RepoInfo;
   history: StarDataPoint[];
+  info: RepoInfo;
 }
 
 const CACHE_VERSION = "v2";
