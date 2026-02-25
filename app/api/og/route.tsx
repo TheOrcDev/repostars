@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
         <div
           style={{
             zIndex: 1,
-            marginTop: 24,
+            marginTop: 36,
             border: `1px solid ${theme.gridColor}`,
             borderRadius: 16,
             padding: 18,
@@ -179,6 +179,11 @@ export async function GET(req: NextRequest) {
               <line x1="0" y1={Math.round(chartH / 2)} x2={chartW} y2={Math.round(chartH / 2)} stroke={theme.gridColor} strokeWidth="1" strokeDasharray="4 4" />
               <line x1="0" y1="0" x2={chartW} y2="0" stroke={theme.gridColor} strokeWidth="1" strokeDasharray="4 4" />
 
+              {/* Y-axis labels on the left */}
+              <text x="-10" y="6" textAnchor="end" fill={theme.textColor} fontSize="13" opacity="0.9">{formatStars(yMax)}</text>
+              <text x="-10" y={Math.round(chartH / 2) + 4} textAnchor="end" fill={theme.textColor} fontSize="13" opacity="0.9">{formatStars(yMid)}</text>
+              <text x="-10" y={chartH + 4} textAnchor="end" fill={theme.textColor} fontSize="13" opacity="0.9">0</text>
+
               {withSeries.map((repo, i) => (
                 <polyline
                   key={repo.fullName}
@@ -192,12 +197,6 @@ export async function GET(req: NextRequest) {
               ))}
             </g>
           </svg>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: theme.textColor, fontSize: 16, paddingLeft: 52, paddingRight: 12 }}>
-            <span>{formatStars(yMax)}</span>
-            <span>{formatStars(yMid)}</span>
-            <span>0</span>
-          </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: theme.textColor, fontSize: 14, paddingLeft: 52, paddingRight: 12 }}>
             <span>Start</span>
