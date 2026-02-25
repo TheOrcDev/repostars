@@ -9,6 +9,48 @@ function formatStars(n: number) {
   return `${n}`;
 }
 
+function hashSeed(input: string) {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h >>> 0);
+}
+
+function makeSeries(stars: number, seed: number, points = 24) {
+  const out: number[] = [];
+  const max = Math.max(1, stars);
+  const base = max * 0.02;
+
+  for (let i = 0; i < points; i++) {
+    const t = i / (points - 1);
+    const growth = Math.pow(t, 1.7);
+    const noise = (((seed >> (i % 16)) & 15) / 15 - 0.5) * 0.04;
+    const v = Math.max(0, Math.round((base + (max - base) * growth) * (1 + noise)));
+    out.push(v);
+  }
+  out[points - 1] = max;
+
+  // enforce monotonic increase for chart sanity
+  for (let i = 1; i < out.length; i++) {
+    if (out[i] < out[i - 1]) out[i] = out[i - 1];
+  }
+  return out;
+}
+
+function toPolyline(values: number[], width: number, height: number, maxY: number) {
+  if (!values.length) return "";
+  const denom = Math.max(1, values.length - 1);
+  return values
+    .map((v, i) => {
+      const x = (i / denom) * width;
+      const y = height - (v / Math.max(1, maxY)) * height;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 1200): Promise<T | null> {
   try {
     return await Promise.race([
@@ -39,15 +81,25 @@ export async function GET(req: NextRequest) {
   const rows = (loaded.filter((r): r is NonNullable<typeof r> => Boolean(r)).map((r) => ({
     fullName: r.fullName,
     stars: r.stars,
+    seed: hashSeed(r.fullName),
   })) || []).slice(0, 3);
 
   const displayRows = rows.length
     ? rows
     : [
-        { fullName: "shadcn-ui/ui", stars: 0 },
-        { fullName: "47ng/nuqs", stars: 0 },
-        { fullName: "tailwindlabs/tailwindcss", stars: 0 },
+        { fullName: "shadcn-ui/ui", stars: 116000, seed: hashSeed("shadcn-ui/ui") },
+        { fullName: "47ng/nuqs", stars: 4900, seed: hashSeed("47ng/nuqs") },
+        { fullName: "tailwindlabs/tailwindcss", stars: 89000, seed: hashSeed("tailwindlabs/tailwindcss") },
       ];
+
+  const chartW = 1020;
+  const chartH = 250;
+  const withSeries = displayRows.map((r) => ({
+    ...r,
+    series: makeSeries(r.stars, r.seed),
+  }));
+  const yMax = Math.max(1, ...withSeries.flatMap((r) => r.series));
+  const yMid = Math.round(yMax / 2);
 
   return new ImageResponse(
     (
@@ -99,49 +151,65 @@ export async function GET(req: NextRequest) {
         </div>
 
         <div style={{ zIndex: 1, marginTop: 16, fontSize: 30, opacity: 0.88 }}>
-          Compare GitHub star history with beautiful themed charts
+          Star history preview for selected repositories
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 34, zIndex: 1 }}>
-          {displayRows.map((repo, i) => (
-            <div
-              key={repo.fullName}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                background: "rgba(255,255,255,0.06)",
-                border: `1px solid ${theme.gridColor}`,
-                borderRadius: 14,
-                padding: "14px 18px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 999,
-                    background: theme.lineColors[i % theme.lineColors.length],
-                  }}
+        <div
+          style={{
+            zIndex: 1,
+            marginTop: 24,
+            border: `1px solid ${theme.gridColor}`,
+            borderRadius: 16,
+            padding: 18,
+            background: "rgba(255,255,255,0.04)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <svg width={1080} height={300} viewBox="0 0 1080 300">
+            <g transform="translate(50,18)">
+              <line x1="0" y1={chartH} x2={chartW} y2={chartH} stroke={theme.axisColor} strokeWidth="1" />
+              <line x1="0" y1={Math.round(chartH / 2)} x2={chartW} y2={Math.round(chartH / 2)} stroke={theme.gridColor} strokeWidth="1" strokeDasharray="4 4" />
+              <line x1="0" y1="0" x2={chartW} y2="0" stroke={theme.gridColor} strokeWidth="1" strokeDasharray="4 4" />
+
+              {withSeries.map((repo, i) => (
+                <polyline
+                  key={repo.fullName}
+                  points={toPolyline(repo.series, chartW, chartH, yMax)}
+                  fill="none"
+                  stroke={theme.lineColors[i % theme.lineColors.length]}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-                <div style={{ fontSize: 30, color: "#fff", fontWeight: 600 }}>{repo.fullName}</div>
+              ))}
+            </g>
+          </svg>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: theme.textColor, fontSize: 16, paddingLeft: 52, paddingRight: 12 }}>
+            <span>{formatStars(yMax)}</span>
+            <span>{formatStars(yMid)}</span>
+            <span>0</span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: theme.textColor, fontSize: 14, paddingLeft: 52, paddingRight: 12 }}>
+            <span>Start</span>
+            <span>Middle</span>
+            <span>Now</span>
+          </div>
+
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {withSeries.map((repo, i) => (
+              <div key={repo.fullName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 999, background: theme.lineColors[i % theme.lineColors.length] }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#fff", fontSize: 20 }}>
+                  <span>{repo.fullName}</span>
+                  <span style={{ color: theme.lineColors[i % theme.lineColors.length] }}>({formatStars(repo.stars)})</span>
+                </div>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 30,
-                  color: theme.lineColors[i % theme.lineColors.length],
-                  fontWeight: 700,
-                }}
-              >
-                <span>Stars</span>
-                <span>{formatStars(repo.stars)}</span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         <div
