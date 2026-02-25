@@ -5,13 +5,9 @@ import { Hero } from "@/components/hero";
 import { Footer } from "@/components/footer";
 import { HomeContent } from "@/components/home-content";
 import { ChartSkeleton } from "@/components/chart-skeleton";
-import { getRepoInfo, getStarHistory } from "@/lib/github";
-import type { StarDataPoint, RepoInfo } from "@/lib/github";
+import { getRepoDataCached, type RepoData } from "@/lib/repo-cache";
 
-export interface PreloadedRepo {
-  info: RepoInfo;
-  history: StarDataPoint[];
-}
+export interface PreloadedRepo extends RepoData {}
 
 type PageProps = {
   searchParams: Promise<SearchParams>;
@@ -22,15 +18,20 @@ async function PrefetchedContent({ reposParam, theme }: { reposParam: string; th
 
   if (reposParam) {
     const repoList = reposParam.split(",").filter(Boolean).slice(0, 5);
-    for (const fullName of repoList) {
-      const [owner, repo] = fullName.split("/");
-      if (!owner || !repo) continue;
-      try {
-        const info = await getRepoInfo(owner, repo);
-        const history = await getStarHistory(owner, repo, info);
-        preloadedRepos.push({ info, history });
-      } catch {}
-    }
+
+    const loaded = await Promise.all(
+      repoList.map(async (fullName) => {
+        const [owner, repo] = fullName.split("/");
+        if (!owner || !repo) return null;
+        try {
+          return await getRepoDataCached(owner, repo);
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    preloadedRepos.push(...loaded.filter((item): item is PreloadedRepo => item !== null));
   }
 
   return <HomeContent initialRepos={preloadedRepos} initialTheme={theme} />;

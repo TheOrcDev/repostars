@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
@@ -80,14 +81,16 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
       </head>
       <body className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen font-sans antialiased`}>
-        <NuqsAdapter>
-          <ThemeProvider>
-            <TooltipProvider>
-              <Header />
-              {children}
-            </TooltipProvider>
-          </ThemeProvider>
-        </NuqsAdapter>
+        <Suspense>
+          <NuqsAdapter>
+            <ThemeProvider>
+              <TooltipProvider>
+                <Header />
+                {children}
+              </TooltipProvider>
+            </ThemeProvider>
+          </NuqsAdapter>
+        </Suspense>
         <Analytics />
       </body>
     </html>
