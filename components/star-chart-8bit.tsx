@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { type ChartTheme } from "@/lib/themes";
 import { type StarDataPoint } from "@/lib/github";
+import { BitCard } from "@/components/ui/bit-card";
 
 interface RepoData {
   name: string;
@@ -137,22 +138,18 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
   function StarChart8Bit({ repos, theme }, ref) {
     if (repos.length === 0 || repos.every((r) => r.data.length === 0)) {
       return (
-        <div
-          ref={ref}
-          className="flex h-[400px] items-center justify-center"
-          style={{
-            background: theme.background,
-            color: theme.textColor,
-            fontFamily: "'Press Start 2P', monospace",
-            fontSize: 10,
-            border: `4px solid ${theme.lineColors[0]}`,
-            boxShadow: `
-              4px 4px 0 0 ${theme.lineColors[0]}33,
-              inset 0 0 0 2px ${theme.background}
-            `,
-          }}
-        >
-          NO DATA FOUND
+        <div ref={ref}>
+          <BitCard
+            className="flex h-[400px] items-center justify-center"
+            style={{
+              background: theme.background,
+              color: theme.textColor,
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: 10,
+            }}
+          >
+            NO DATA FOUND
+          </BitCard>
         </div>
       );
     }
@@ -161,43 +158,16 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
     const repoNames = repos.map((r) => r.name);
 
     return (
-      <div
-        ref={ref}
-        className="p-4"
-        style={{
-          background: theme.background,
-          fontFamily: "'Press Start 2P', monospace",
-          border: `4px solid ${theme.lineColors[0]}`,
-          boxShadow: `
-            8px 8px 0 0 ${theme.lineColors[0]}44,
-            inset 0 0 0 2px ${theme.background}
-          `,
-          imageRendering: "auto",
-          position: "relative",
-        }}
-      >
-        {/* Pixel corner accents */}
-        <div style={{
-          position: "absolute", top: -4, left: -4,
-          width: 8, height: 8,
-          background: theme.lineColors[0],
-        }} />
-        <div style={{
-          position: "absolute", top: -4, right: -4,
-          width: 8, height: 8,
-          background: theme.lineColors[0],
-        }} />
-        <div style={{
-          position: "absolute", bottom: -4, left: -4,
-          width: 8, height: 8,
-          background: theme.lineColors[0],
-        }} />
-        <div style={{
-          position: "absolute", bottom: -4, right: -4,
-          width: 8, height: 8,
-          background: theme.lineColors[0],
-        }} />
-
+      <div ref={ref}>
+        <BitCard
+          className="p-4"
+          style={{
+            background: theme.background,
+            fontFamily: "'Press Start 2P', monospace",
+            imageRendering: "auto",
+            position: "relative",
+          }}
+        >
         {/* Legend */}
         <div style={{
           display: "flex",
@@ -297,6 +267,7 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
           pointerEvents: "none",
           opacity: 0.3,
         }} />
+        </BitCard>
       </div>
     );
   }
