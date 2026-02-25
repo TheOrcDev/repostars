@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { type SearchParams } from "nuqs/server";
 import { searchParamsCache } from "@/lib/search-params";
-import { HomeContent } from "@/components/home-content";
 import { Hero } from "@/components/hero";
 import { Footer } from "@/components/footer";
+import { HomeContent } from "@/components/home-content";
+import { ChartSkeleton } from "@/components/chart-skeleton";
 import { getRepoInfo, getStarHistory } from "@/lib/github";
 import type { StarDataPoint, RepoInfo } from "@/lib/github";
 
@@ -16,50 +17,39 @@ type PageProps = {
   searchParams: Promise<SearchParams>;
 };
 
-async function prefetchRepos(reposParam: string): Promise<PreloadedRepo[]> {
-  if (!reposParam) return [];
+async function PrefetchedContent({ reposParam, theme }: { reposParam: string; theme: string }) {
+  const preloadedRepos: PreloadedRepo[] = [];
 
-  const repoList = reposParam
-    .split(",")
-    .filter(Boolean)
-    .slice(0, 5);
-
-  const results: PreloadedRepo[] = [];
-
-  for (const fullName of repoList) {
-    const [owner, repo] = fullName.split("/");
-    if (!owner || !repo) continue;
-    try {
-      const info = await getRepoInfo(owner, repo);
-      const history = await getStarHistory(owner, repo, info);
-      results.push({ info, history });
-    } catch {
-      // Skip repos that fail
+  if (reposParam) {
+    const repoList = reposParam.split(",").filter(Boolean).slice(0, 5);
+    for (const fullName of repoList) {
+      const [owner, repo] = fullName.split("/");
+      if (!owner || !repo) continue;
+      try {
+        const info = await getRepoInfo(owner, repo);
+        const history = await getStarHistory(owner, repo, info);
+        preloadedRepos.push({ info, history });
+      } catch {}
     }
   }
 
-  return results;
+  return <HomeContent initialRepos={preloadedRepos} initialTheme={theme} />;
 }
 
 export default async function Home({ searchParams }: PageProps) {
   const { repos: reposParam, theme } = await searchParamsCache.parse(searchParams);
-  const preloadedRepos = await prefetchRepos(reposParam);
+  const hasRepos = Boolean(reposParam);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
       <Hero />
-      <Suspense
-        fallback={
-          <div className="flex h-[500px] items-center justify-center">
-            <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-          </div>
-        }
-      >
-        <HomeContent
-          initialRepos={preloadedRepos}
-          initialTheme={theme}
-        />
-      </Suspense>
+      {hasRepos ? (
+        <Suspense fallback={<ChartSkeleton />}>
+          <PrefetchedContent reposParam={reposParam} theme={theme} />
+        </Suspense>
+      ) : (
+        <HomeContent initialRepos={[]} initialTheme={theme} />
+      )}
       <Footer />
     </main>
   );
