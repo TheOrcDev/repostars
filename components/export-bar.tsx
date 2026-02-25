@@ -2,8 +2,14 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { toPng } from "html-to-image";
-import { Check, Copy } from "@phosphor-icons/react";
+import { Check, Copy, ShareNetwork } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { ChartTheme } from "@/lib/themes";
 
 interface ExportBarProps {
@@ -13,7 +19,6 @@ interface ExportBarProps {
 }
 
 export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
-  const [linkCopied, setLinkCopied] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
 
   const embedCode = useMemo(() => {
@@ -43,8 +48,12 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
 
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
+  }, []);
+
+  const shareOnX = useCallback(() => {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent("Compare GitHub stars with RepoStars");
+    window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, "_blank", "noopener,noreferrer");
   }, []);
 
   const copyReadmeEmbed = useCallback(() => {
@@ -57,12 +66,18 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3">
-        <Button variant="outline" size="sm" onClick={exportPng}>
-          Export PNG
-        </Button>
-        <Button variant="outline" size="icon" onClick={copyLink} aria-label="Copy link">
-          {linkCopied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="Share options">
+              <ShareNetwork size={16} weight="bold" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={exportPng}>Export PNG</DropdownMenuItem>
+            <DropdownMenuItem onClick={copyLink}>Copy URL</DropdownMenuItem>
+            <DropdownMenuItem onClick={shareOnX}>Share on X</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {embedCode && (
