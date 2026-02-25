@@ -53,10 +53,10 @@ export async function GET(req: NextRequest) {
     const series = history.slice(-90);
     const values = series.map((d) => d.stars);
 
-    const plotX = 86;
-    const plotY = 104;
-    const plotW = 594;
-    const plotH = 220;
+    const plotX = 20;
+    const plotY = 98;
+    const plotW = 660;
+    const plotH = 260;
 
     const { line, area } = buildSparkline(values, plotW, plotH);
 
