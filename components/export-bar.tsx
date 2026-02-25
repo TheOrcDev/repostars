@@ -38,6 +38,17 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
     setTimeout(() => setCopied(false), 2000);
   }, []);
 
+  const copyReadmeEmbed = useCallback(() => {
+    if (repoNames.length === 0) return;
+    const repo = repoNames[0];
+    const u = new URL(window.location.href);
+    const theme = u.searchParams.get("theme") || "dark";
+    const embed = `![RepoStars](https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(theme)})`;
+    navigator.clipboard.writeText(embed);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [repoNames]);
+
   return (
     <div className="flex flex-wrap gap-3">
       <Button variant="outline" size="sm" onClick={exportPng}>
@@ -45,6 +56,9 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
       </Button>
       <Button variant="outline" size="sm" onClick={copyLink}>
         {copied ? "Copied!" : "Copy Link"}
+      </Button>
+      <Button variant="outline" size="sm" onClick={copyReadmeEmbed}>
+        Copy README Embed
       </Button>
     </div>
   );
