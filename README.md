@@ -1,4 +1,4 @@
-# ★ RepoStars
+# <img src="public/repostars-logo.png" width="32" height="32" alt="RepoStars" /> RepoStars
 
 Modern, themeable GitHub star history charts. Track and compare repos with beautiful visualizations.
 
