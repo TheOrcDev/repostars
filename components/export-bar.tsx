@@ -65,29 +65,39 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Share options">
-              <ShareNetwork size={16} weight="bold" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={exportPng}>Export PNG</DropdownMenuItem>
-            <DropdownMenuItem onClick={copyLink}>Copy URL</DropdownMenuItem>
-            <DropdownMenuItem onClick={shareOnX}>Share on X</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Share
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="Share options">
+                <ShareNetwork size={16} weight="bold" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={exportPng}>Export PNG</DropdownMenuItem>
+              <DropdownMenuItem onClick={copyLink}>Copy URL</DropdownMenuItem>
+              <DropdownMenuItem onClick={shareOnX}>Share on X</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {embedCode && (
-        <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
-          <code className="truncate font-mono text-xs text-muted-foreground">
-            {embedCode}
-          </code>
-          <Button variant="ghost" size="icon" onClick={copyReadmeEmbed} aria-label="Copy README embed code">
-            {embedCopied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
-          </Button>
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            README Embed
+          </p>
+          <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
+            <code className="truncate font-mono text-xs text-muted-foreground">
+              {embedCode}
+            </code>
+            <Button variant="ghost" size="icon" onClick={copyReadmeEmbed} aria-label="Copy README embed code">
+              {embedCopied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
+            </Button>
+          </div>
         </div>
       )}
     </div>
