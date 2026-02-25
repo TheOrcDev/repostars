@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
                 color: theme.background,
               }}
             >
-              ★
+              RS
             </div>
             <div style={{ fontSize: 56, fontWeight: 800, color: "#fff" }}>RepoStars</div>
           </div>
@@ -127,15 +127,36 @@ export async function GET(req: NextRequest) {
                 />
                 <div style={{ fontSize: 30, color: "#fff", fontWeight: 600 }}>{repo.fullName}</div>
               </div>
-              <div style={{ fontSize: 30, color: theme.lineColors[i % theme.lineColors.length], fontWeight: 700 }}>
-                ★ {formatStars(repo.stars)}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 30,
+                  color: theme.lineColors[i % theme.lineColors.length],
+                  fontWeight: 700,
+                }}
+              >
+                <span>Stars</span>
+                <span>{formatStars(repo.stars)}</span>
               </div>
             </div>
           ))}
         </div>
 
-        <div style={{ zIndex: 1, marginTop: "auto", fontSize: 22, opacity: 0.75 }}>
-          Live data • Theme: {theme.name || "Dark"}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            zIndex: 1,
+            marginTop: "auto",
+            fontSize: 22,
+            opacity: 0.75,
+          }}
+        >
+          <span>Live data - Theme:</span>
+          <span>{theme.name || "Dark"}</span>
         </div>
       </div>
     ),
