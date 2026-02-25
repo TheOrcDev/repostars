@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     const series = history.slice(-90);
     const values = series.map((d) => d.stars);
-    const { line, area } = buildSparkline(values, 500, 100);
+    const { line, area } = buildSparkline(values, 500, 200);
 
     const yMax = Math.max(...values, info.stars);
     const yMid = Math.round(yMax / 2);
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     const endDate = series[series.length - 1]?.date ?? "";
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="700" height="240" viewBox="0 0 700 240" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}">
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${theme.lineColors[0]}" stop-opacity="0.32"/>
@@ -70,31 +70,31 @@ export async function GET(req: NextRequest) {
     </linearGradient>
   </defs>
 
-  <rect x="0" y="0" width="700" height="240" fill="${theme.background}" rx="14"/>
-  <rect x="1" y="1" width="698" height="238" fill="none" stroke="${theme.gridColor}" rx="13"/>
+  <rect x="0" y="0" width="700" height="420" fill="${theme.background}" rx="14"/>
+  <rect x="1" y="1" width="698" height="418" fill="none" stroke="${theme.gridColor}" rx="13"/>
 
   <text x="24" y="38" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="18" font-weight="600">${esc(info.fullName)}</text>
   <text x="24" y="66" fill="${theme.lineColors[0]}" font-family="Inter,Segoe UI,Arial" font-size="26" font-weight="700">★ ${formatStars(info.stars)}</text>
 
-  <g transform="translate(120,82)">
-    <line x1="0" y1="0" x2="0" y2="110" stroke="${theme.gridColor}"/>
-    <line x1="0" y1="110" x2="500" y2="110" stroke="${theme.gridColor}"/>
-    <line x1="0" y1="55" x2="500" y2="55" stroke="${theme.gridColor}" stroke-dasharray="4 4"/>
+  <g transform="translate(120,94)">
+    <line x1="0" y1="0" x2="0" y2="210" stroke="${theme.gridColor}"/>
+    <line x1="0" y1="210" x2="500" y2="210" stroke="${theme.gridColor}"/>
+    <line x1="0" y1="105" x2="500" y2="105" stroke="${theme.gridColor}" stroke-dasharray="4 4"/>
     <line x1="0" y1="0" x2="500" y2="0" stroke="${theme.gridColor}" stroke-dasharray="4 4"/>
 
     <text x="-10" y="4" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="11" opacity="0.9">${formatStars(yMax)}</text>
-    <text x="-10" y="59" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="11" opacity="0.9">${formatStars(yMid)}</text>
-    <text x="-10" y="114" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="11" opacity="0.9">0</text>
+    <text x="-10" y="109" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="11" opacity="0.9">${formatStars(yMid)}</text>
+    <text x="-10" y="214" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="11" opacity="0.9">0</text>
 
     ${line ? `<polygon points="${area}" fill="url(#g)"/>` : ""}
     ${line ? `<polyline points="${line}" fill="none" stroke="${theme.lineColors[0]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
 
-    <text x="0" y="128" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="10" opacity="0.8">${esc(startDate)}</text>
-    <text x="250" y="128" text-anchor="middle" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="10" opacity="0.8">${esc(midDate)}</text>
-    <text x="500" y="128" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="10" opacity="0.8">${esc(endDate)}</text>
+    <text x="0" y="228" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="10" opacity="0.8">${esc(startDate)}</text>
+    <text x="250" y="228" text-anchor="middle" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="10" opacity="0.8">${esc(midDate)}</text>
+    <text x="500" y="228" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="10" opacity="0.8">${esc(endDate)}</text>
   </g>
 
-  <text x="676" y="222" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="12" opacity="0.8">Powered by repostars.dev</text>
+  <text x="676" y="402" text-anchor="end" fill="${theme.textColor}" font-family="Inter,Segoe UI,Arial" font-size="12" opacity="0.8">Powered by repostars.dev</text>
 </svg>`;
 
     return new NextResponse(svg, {
