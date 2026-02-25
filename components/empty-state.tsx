@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
   onAdd: (owner: string, repo: string) => void;
@@ -18,22 +19,23 @@ export function EmptyState({ onAdd, loading }: EmptyStateProps) {
           <div className="text-center text-muted-foreground">
             <p className="mb-2 text-5xl">★</p>
             <p className="text-lg">Add a repo to see its star history</p>
-            <p className="mt-2 text-sm">
-              Try{" "}
-              <button
+            <p className="mt-2 text-sm">Try one:</p>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => onAdd("shadcn-ui", "ui")}
-                className="text-primary underline decoration-primary/30 hover:decoration-primary"
               >
                 shadcn-ui/ui
-              </button>
-              {" or "}
-              <button
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => onAdd("47ng", "nuqs")}
-                className="text-primary underline decoration-primary/30 hover:decoration-primary"
               >
                 47ng/nuqs
-              </button>
-            </p>
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
