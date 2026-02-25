@@ -228,12 +228,19 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
               marginBottom: 12,
               fontSize: 8,
               color: theme.textColor,
+              flexWrap: "wrap",
             }}
           >
             {repoNames.map((name, i) => (
               <div
                 key={name}
-                style={{ display: "flex", alignItems: "center", gap: 6 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  minWidth: 0,
+                  maxWidth: 220,
+                }}
               >
                 <span
                   style={{
@@ -243,9 +250,20 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
                     background: theme.lineColors[i % theme.lineColors.length],
                     border: `2px solid ${theme.background}`,
                     outline: `1px solid ${theme.lineColors[i % theme.lineColors.length]}`,
+                    flexShrink: 0,
                   }}
                 />
-                <span>{name}</span>
+                <span
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    minWidth: 0,
+                  }}
+                  title={name}
+                >
+                  {name}
+                </span>
               </div>
             ))}
           </div>

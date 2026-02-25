@@ -154,12 +154,19 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
               marginBottom: 12,
               fontSize: 13,
               color: theme.textColor,
+              flexWrap: "wrap",
             }}
           >
             {repoNames.map((name, i) => (
               <div
                 key={name}
-                style={{ display: "flex", alignItems: "center", gap: 6 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  minWidth: 0,
+                  maxWidth: 260,
+                }}
               >
                 <span
                   style={{
@@ -168,9 +175,20 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
                     height: 10,
                     borderRadius: "50%",
                     background: theme.lineColors[i % theme.lineColors.length],
+                    flexShrink: 0,
                   }}
                 />
-                <span>{name}</span>
+                <span
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    minWidth: 0,
+                  }}
+                  title={name}
+                >
+                  {name}
+                </span>
               </div>
             ))}
           </div>
