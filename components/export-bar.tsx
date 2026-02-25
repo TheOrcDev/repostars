@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { toPng } from "html-to-image";
+import { Check, Copy } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import type { ChartTheme } from "@/lib/themes";
 
@@ -59,8 +60,8 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
         <Button variant="outline" size="sm" onClick={exportPng}>
           Export PNG
         </Button>
-        <Button variant="outline" size="sm" onClick={copyLink}>
-          {linkCopied ? "Copied!" : "Copy Link"}
+        <Button variant="outline" size="icon" onClick={copyLink} aria-label="Copy link">
+          {linkCopied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
         </Button>
       </div>
 
@@ -69,8 +70,8 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
           <code className="truncate font-mono text-xs text-muted-foreground">
             {embedCode}
           </code>
-          <Button variant="ghost" size="sm" onClick={copyReadmeEmbed}>
-            {embedCopied ? "Copied" : "Copy"}
+          <Button variant="ghost" size="icon" onClick={copyReadmeEmbed} aria-label="Copy README embed code">
+            {embedCopied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
           </Button>
         </div>
       )}
