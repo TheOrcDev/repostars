@@ -18,15 +18,21 @@ function hashSeed(input: string) {
   return Math.abs(h >>> 0);
 }
 
-function makeSeries(stars: number, seed: number, points = 24) {
+function makeSeries(
+  stars: number,
+  seed: number,
+  points = 24,
+  curvePower = 1.7,
+  noiseAmp = 0.04
+) {
   const out: number[] = [];
   const max = Math.max(1, stars);
   const base = max * 0.02;
 
   for (let i = 0; i < points; i++) {
     const t = i / (points - 1);
-    const growth = Math.pow(t, 1.7);
-    const noise = (((seed >> (i % 16)) & 15) / 15 - 0.5) * 0.04;
+    const growth = Math.pow(t, curvePower);
+    const noise = (((seed >> (i % 16)) & 15) / 15 - 0.5) * noiseAmp;
     const v = Math.max(0, Math.round((base + (max - base) * growth) * (1 + noise)));
     out.push(v);
   }
@@ -94,9 +100,18 @@ export async function GET(req: NextRequest) {
 
   const chartW = 1020;
   const chartH = 250;
+
+  const curveByTheme: Record<string, { power: number; noise: number }> = {
+    terminal: { power: 2.2, noise: 0.025 },
+    neon: { power: 1.55, noise: 0.05 },
+    synthwave: { power: 1.45, noise: 0.055 },
+    minimal: { power: 1.85, noise: 0.02 },
+  };
+  const curve = curveByTheme[themeId] ?? { power: 1.7, noise: 0.04 };
+
   const withSeries = displayRows.map((r) => ({
     ...r,
-    series: makeSeries(r.stars, r.seed),
+    series: makeSeries(r.stars, r.seed, 24, curve.power, curve.noise),
   }));
   const yMax = Math.max(1, ...withSeries.flatMap((r) => r.series));
   const yMid = Math.round(yMax / 2);
