@@ -9,6 +9,17 @@ function formatStars(n: number) {
   return `${n}`;
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = 1200): Promise<T | null> {
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const reposParam = searchParams.get("repos") || "";
@@ -24,11 +35,7 @@ export async function GET(req: NextRequest) {
     repos.map(async (fullName) => {
       const [owner, repo] = fullName.split("/");
       if (!owner || !repo) return null;
-      try {
-        return await getRepoInfo(owner, repo);
-      } catch {
-        return null;
-      }
+      return withTimeout(getRepoInfo(owner, repo), 1200);
     })
   );
 
