@@ -12,9 +12,10 @@ import { ExportBar } from "@/components/export-bar";
 interface HomeContentProps {
   initialRepos?: LoadedRepo[];
   initialTheme?: string;
+  initialReposParam?: string;
 }
 
-export function HomeContent({ initialRepos = [], initialTheme }: HomeContentProps) {
+export function HomeContent({ initialRepos = [], initialTheme, initialReposParam = "" }: HomeContentProps) {
   const {
     repos,
     loading,
@@ -24,7 +25,7 @@ export function HomeContent({ initialRepos = [], initialTheme }: HomeContentProp
     setThemeId,
     addRepo,
     removeRepo,
-  } = useRepos({ initialRepos, initialTheme });
+  } = useRepos({ initialRepos, initialTheme, initialReposParam });
 
   const chartRef = useRef<HTMLDivElement>(null);
 
