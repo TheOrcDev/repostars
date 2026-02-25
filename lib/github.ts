@@ -184,36 +184,34 @@ export async function getStarHistory(
 
     if (lastPoint.stars < totalStars && lastPoint.date !== today) {
       // Add synthetic points from last real data to today.
-      // Keep this linear + monotonic to avoid long flat tails on large repos.
+      // Use smoothstep curve (S-shape) + monotonic growth to avoid flat or too-straight tails.
       const gapMs = todayMs - lastMs;
       const gapDays = gapMs / dayMs;
-      const gapBin = gapDays <= 180 ? dayMs * 7 : dayMs * 14;
       const starGap = totalStars - lastPoint.stars;
 
-      const syntheticDates: number[] = [];
-      for (let ms = lastMs + gapBin; ms < todayMs; ms += gapBin) {
-        syntheticDates.push(ms);
-      }
-
-      const steps = syntheticDates.length;
+      // Keep enough points so the tail has visible curvature.
+      const steps = Math.max(12, Math.min(52, Math.floor(gapDays / 7)));
       let prev = lastPoint.stars;
 
-      syntheticDates.forEach((ms, idx) => {
-        const t = (idx + 1) / (steps + 1); // linear 0..1 (excluding endpoints)
-        const raw = lastPoint.stars + t * starGap;
-        const minRemainingStep = Math.max(1, Math.floor((totalStars - prev) / (steps - idx + 1)));
+      for (let i = 1; i <= steps; i++) {
+        const t = i / (steps + 1); // 0..1 (excluding endpoints)
+        // Smoothstep: 3t^2 - 2t^3 (gentle curve, no harsh plateau)
+        const eased = t * t * (3 - 2 * t);
+        const raw = lastPoint.stars + eased * starGap;
+
+        const ms = lastMs + t * gapMs;
+        const minRemainingStep = Math.max(
+          1,
+          Math.floor((totalStars - prev) / (steps - i + 2))
+        );
         const next = Math.min(totalStars - 1, Math.max(Math.floor(raw), prev + minRemainingStep));
         prev = next;
 
         const date = new Date(ms).toISOString().split("T")[0];
         interpolated.push({ date, stars: next });
-      });
+      }
 
       // Final point at today with actual star count
-      if (prev >= totalStars) {
-        // Ensure strictly increasing endpoint
-        prev = totalStars - 1;
-      }
       interpolated.push({ date: today, stars: totalStars });
     }
   }
