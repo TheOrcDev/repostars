@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toPng } from "html-to-image";
 import { Button } from "@/components/ui/button";
 import type { ChartTheme } from "@/lib/themes";
@@ -12,7 +12,15 @@ interface ExportBarProps {
 }
 
 export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
-  const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
+
+  const embedCode = useMemo(() => {
+    if (repoNames.length === 0) return "";
+    const repo = repoNames[0];
+    const themeId = theme.id || "dark";
+    return `![RepoStars](https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)})`;
+  }, [repoNames, theme.id]);
 
   const exportPng = useCallback(async () => {
     if (!chartRef.current) return;
@@ -34,32 +42,38 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
 
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }, []);
 
   const copyReadmeEmbed = useCallback(() => {
-    if (repoNames.length === 0) return;
-    const repo = repoNames[0];
-    const u = new URL(window.location.href);
-    const theme = u.searchParams.get("theme") || "dark";
-    const embed = `![RepoStars](https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(theme)})`;
-    navigator.clipboard.writeText(embed);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [repoNames]);
+    if (!embedCode) return;
+    navigator.clipboard.writeText(embedCode);
+    setEmbedCopied(true);
+    setTimeout(() => setEmbedCopied(false), 2000);
+  }, [embedCode]);
 
   return (
-    <div className="flex flex-wrap gap-3">
-      <Button variant="outline" size="sm" onClick={exportPng}>
-        Export PNG
-      </Button>
-      <Button variant="outline" size="sm" onClick={copyLink}>
-        {copied ? "Copied!" : "Copy Link"}
-      </Button>
-      <Button variant="outline" size="sm" onClick={copyReadmeEmbed}>
-        Copy README Embed
-      </Button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-3">
+        <Button variant="outline" size="sm" onClick={exportPng}>
+          Export PNG
+        </Button>
+        <Button variant="outline" size="sm" onClick={copyLink}>
+          {linkCopied ? "Copied!" : "Copy Link"}
+        </Button>
+      </div>
+
+      {embedCode && (
+        <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
+          <code className="truncate font-mono text-xs text-muted-foreground">
+            {embedCode}
+          </code>
+          <Button variant="ghost" size="sm" onClick={copyReadmeEmbed}>
+            {embedCopied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
