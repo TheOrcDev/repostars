@@ -61,15 +61,14 @@ export async function getRepoInfo(
  * Fetch star history with smart sampling.
  * Accepts pre-fetched info to avoid double API call.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: intentionally consolidated data pipeline
 export async function getStarHistory(
   owner: string,
   repo: string,
   info?: RepoInfo
 ): Promise<StarDataPoint[]> {
-  if (!info) {
-    info = await getRepoInfo(owner, repo);
-  }
-  const totalStars = info.stars;
+  const resolvedInfo = info ?? (await getRepoInfo(owner, repo));
+  const totalStars = resolvedInfo.stars;
 
   if (totalStars === 0) {
     return [];
@@ -152,7 +151,11 @@ export async function getStarHistory(
 
   // Compute date range
   const startMs = new Date(anchors[0].date).getTime();
-  const endMs = new Date(anchors[anchors.length - 1].date).getTime();
+  const endAnchor = anchors.at(-1);
+  if (!endAnchor) {
+    return anchors;
+  }
+  const endMs = new Date(endAnchor.date).getTime();
   const rangeMs = endMs - startMs;
 
   // Pick bin size based on range
@@ -178,7 +181,7 @@ export async function getStarHistory(
     let lo = 0,
       hi = anchors.length - 1;
     while (lo < hi - 1) {
-      const mid = (lo + hi) >> 1;
+      const mid = Math.floor((lo + hi) / 2);
       if (new Date(anchors[mid].date).getTime() <= ms) {
         lo = mid;
       } else {
@@ -197,8 +200,8 @@ export async function getStarHistory(
   }
 
   // Always include the last anchor
-  const lastAnchor = anchors[anchors.length - 1];
-  if (interpolated[interpolated.length - 1]?.date !== lastAnchor.date) {
+  const lastAnchor = anchors.at(-1);
+  if (lastAnchor && interpolated.at(-1)?.date !== lastAnchor.date) {
     interpolated.push(lastAnchor);
   }
 
@@ -206,7 +209,10 @@ export async function getStarHistory(
   // Keep the real data shape, then interpolate from the last known point
   // to today's actual star count with additional data points.
   if (totalStars > MAX_GITHUB_PAGES * 100 && interpolated.length > 0) {
-    const lastPoint = interpolated[interpolated.length - 1];
+    const lastPoint = interpolated.at(-1);
+    if (!lastPoint) {
+      return interpolated;
+    }
     const lastMs = new Date(lastPoint.date).getTime();
     const todayMs = new Date().setHours(0, 0, 0, 0);
     const today = new Date(todayMs).toISOString().split("T")[0];

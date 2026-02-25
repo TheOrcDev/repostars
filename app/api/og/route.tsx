@@ -14,12 +14,11 @@ function formatStars(n: number) {
 }
 
 function hashSeed(input: string) {
-  let h = 2_166_136_261;
+  let h = 0;
   for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16_777_619);
+    h = (h * 31 + input.charCodeAt(i)) % 1_000_000_007;
   }
-  return Math.abs(h >>> 0);
+  return Math.abs(h);
 }
 
 function makeSeries(
@@ -36,7 +35,7 @@ function makeSeries(
   for (let i = 0; i < points; i++) {
     const t = i / (points - 1);
     const growth = t ** curvePower;
-    const noise = (((seed >> (i % 16)) & 15) / 15 - 0.5) * noiseAmp;
+    const noise = Math.sin(seed * 0.001 + i * 1.137) * 0.5 * noiseAmp;
     const v = Math.max(
       0,
       Math.round((base + (max - base) * growth) * (1 + noise))
@@ -98,10 +97,10 @@ export async function GET(req: NextRequest) {
   const repos = reposParam.split(",").filter(Boolean).slice(0, 3);
 
   const loaded = await Promise.all(
-    repos.map(async (fullName) => {
+    repos.map((fullName) => {
       const [owner, repo] = fullName.split("/");
       if (!(owner && repo)) {
-        return null;
+        return Promise.resolve(null);
       }
       return withTimeout(getRepoInfo(owner, repo), 1200);
     })
@@ -185,6 +184,7 @@ export async function GET(req: NextRequest) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {/* biome-ignore lint/performance/noImgElement: next/og ImageResponse requires standard img */}
           <img
             alt="RepoStars logo"
             height={42}
@@ -216,7 +216,14 @@ export async function GET(req: NextRequest) {
           gap: 10,
         }}
       >
-        <svg height={300} viewBox="0 0 1080 300" width={1080}>
+        <svg
+          aria-label="Star history preview chart"
+          height={300}
+          role="img"
+          viewBox="0 0 1080 300"
+          width={1080}
+        >
+          <title>Star history preview chart</title>
           <g transform="translate(50,18)">
             <line
               stroke={theme.axisColor}

@@ -44,19 +44,23 @@ function interpolateAt(data: StarDataPoint[], dateMs: number): number {
     return 0;
   }
   const firstMs = new Date(data[0].date).getTime();
-  const lastMs = new Date(data[data.length - 1].date).getTime();
+  const lastPoint = data.at(-1);
+  if (!lastPoint) {
+    return data[0].stars;
+  }
+  const lastMs = new Date(lastPoint.date).getTime();
   if (dateMs <= firstMs) {
     return data[0].stars;
   }
   if (dateMs >= lastMs) {
-    return data[data.length - 1].stars;
+    return lastPoint.stars;
   }
 
   // Binary search for surrounding points
   let lo = 0,
     hi = data.length - 1;
   while (lo < hi - 1) {
-    const mid = (lo + hi) >> 1;
+    const mid = Math.floor((lo + hi) / 2);
     if (new Date(data[mid].date).getTime() <= dateMs) {
       lo = mid;
     } else {

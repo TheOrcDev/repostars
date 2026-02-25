@@ -49,6 +49,7 @@ export function RepoChips({ repos, themeId, onRemove }: RepoChipsProps) {
           <button
             className="ml-0.5 text-muted-foreground transition-colors hover:text-destructive"
             onClick={() => onRemove(repo.name)}
+            type="button"
           >
             ×
           </button>

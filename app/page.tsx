@@ -5,9 +5,9 @@ import { Hero } from "@/components/hero";
 import { HomeContent } from "@/components/home-content";
 import { searchParamsCache } from "@/lib/search-params";
 
-type PageProps = {
+interface PageProps {
   searchParams: Promise<SearchParams>;
-};
+}
 
 export async function generateMetadata({
   searchParams,

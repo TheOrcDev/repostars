@@ -51,7 +51,9 @@ function writeCachedRepo(repo: LoadedRepo) {
       cacheKey(repo.info.fullName),
       JSON.stringify({ ts: Date.now(), data: repo })
     );
-  } catch {}
+  } catch {
+    // ignore localStorage write failures
+  }
 }
 
 export function useRepos({

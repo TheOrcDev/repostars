@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
 
     const startDate = series[0]?.date ?? "";
     const midDate = series[Math.floor(series.length / 2)]?.date ?? "";
-    const endDate = series[series.length - 1]?.date ?? "";
+    const endDate = series.at(-1)?.date ?? "";
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}">

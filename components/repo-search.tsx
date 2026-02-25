@@ -8,17 +8,19 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { Field, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
+const TRAILING_SLASH_RE = /\/$/;
+const GITHUB_URL_RE = /(?:https?:\/\/)?github\.com\/([^/]+)\/([^/]+)/;
+const OWNER_REPO_RE = /^([^/]+)\/([^/]+)$/;
+
 const repoSchema = z.object({
   repo: z
     .string()
     .min(1, "Enter a repo")
     .refine(
       (val) => {
-        const trimmed = val.trim().replace(/\/$/, "");
-        const urlMatch = trimmed.match(
-          /(?:https?:\/\/)?github\.com\/([^/]+)\/([^/]+)/
-        );
-        const shortMatch = trimmed.match(/^([^/]+)\/([^/]+)$/);
+        const trimmed = val.trim().replace(TRAILING_SLASH_RE, "");
+        const urlMatch = trimmed.match(GITHUB_URL_RE);
+        const shortMatch = trimmed.match(OWNER_REPO_RE);
         return urlMatch || shortMatch;
       },
       { message: 'Use "owner/repo" or paste a GitHub URL' }
@@ -28,14 +30,12 @@ const repoSchema = z.object({
 type RepoFormValues = z.infer<typeof repoSchema>;
 
 function parseRepoInput(input: string): { owner: string; repo: string } | null {
-  const trimmed = input.trim().replace(/\/$/, "");
-  const urlMatch = trimmed.match(
-    /(?:https?:\/\/)?github\.com\/([^/]+)\/([^/]+)/
-  );
+  const trimmed = input.trim().replace(TRAILING_SLASH_RE, "");
+  const urlMatch = trimmed.match(GITHUB_URL_RE);
   if (urlMatch) {
     return { owner: urlMatch[1], repo: urlMatch[2] };
   }
-  const shortMatch = trimmed.match(/^([^/]+)\/([^/]+)$/);
+  const shortMatch = trimmed.match(OWNER_REPO_RE);
   if (shortMatch) {
     return { owner: shortMatch[1], repo: shortMatch[2] };
   }
