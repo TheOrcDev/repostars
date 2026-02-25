@@ -20,7 +20,8 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     : [];
   const repoText = repoList.length > 0 ? repoList.join(" · ") : "GitHub repositories";
 
-  const ogUrl = params.toString()
+  // Keep homepage OG static for reliability. Use dynamic OG only when repos are provided.
+  const ogUrl = repoList.length > 0
     ? `/api/og?${params.toString()}`
     : "/og-image.png";
 
