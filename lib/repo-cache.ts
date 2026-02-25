@@ -7,13 +7,16 @@ export interface RepoData {
   history: StarDataPoint[];
 }
 
+const CACHE_VERSION = "v2";
+
 export async function getRepoDataCached(
   owner: string,
-  repo: string
+  repo: string,
+  version: string = CACHE_VERSION
 ): Promise<RepoData> {
   "use cache";
 
-  cacheTag(`repo:${owner}/${repo}`);
+  cacheTag(`repo:${owner}/${repo}:${version}`);
   cacheLife("hours");
 
   const info = await getRepoInfo(owner, repo);

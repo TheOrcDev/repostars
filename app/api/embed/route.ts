@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { info, history } = await getRepoDataCached(owner, name);
+    const { info, history } = await getRepoDataCached(owner, name, "v2");
     const theme = themes[themeId] || themes[defaultTheme];
 
     const series = history.slice(-90);
