@@ -86,35 +86,34 @@ export async function getStarHistory(
     pagesToFetch = [...new Set(pagesToFetch)];
   }
 
-  const results: StarDataPoint[] = [];
-  const batchSize = IS_AUTHENTICATED ? 20 : 10;
-  let rateLimited = false;
-
-  for (let i = 0; i < pagesToFetch.length; i += batchSize) {
-    if (rateLimited) break;
-    const batch = pagesToFetch.slice(i, i + batchSize);
-    const responses = await Promise.all(
-      batch.map(async (page) => {
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
-          { headers: headers() }
-        );
-        if (res.status === 403 || res.status === 429) {
-          rateLimited = true;
-          return [];
-        }
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.map(
+  // Fire all requests at once — no sequential batching
+  const responses = await Promise.all(
+    pagesToFetch.map(async (page) => {
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
+        { headers: headers() }
+      );
+      if (res.status === 403 || res.status === 429) return { rateLimited: true, data: [] };
+      if (!res.ok) return { rateLimited: false, data: [] };
+      const data = await res.json();
+      return {
+        rateLimited: false,
+        data: data.map(
           (s: { starred_at: string }, idx: number) =>
             ({
               date: s.starred_at.split("T")[0],
               stars: (page - 1) * 100 + idx + 1,
             }) as StarDataPoint
-        );
-      })
-    );
-    results.push(...responses.flat());
+        ),
+      };
+    })
+  );
+
+  const results: StarDataPoint[] = [];
+  let rateLimited = false;
+  for (const r of responses) {
+    if (r.rateLimited) rateLimited = true;
+    results.push(...r.data);
   }
 
   if (results.length === 0 && rateLimited) {
