@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Field, FieldError } from "@/components/ui/field";
@@ -50,7 +50,8 @@ interface RepoSearchProps {
 
 export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
   const form = useForm<RepoFormValues>({
-    resolver: zodResolver(repoSchema),
+    // zod v4 typing mismatch with @hookform/resolvers in current versions
+    resolver: zodResolver(repoSchema as never) as never,
     defaultValues: { repo: "" },
   });
 
