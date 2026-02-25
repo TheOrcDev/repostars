@@ -9,7 +9,7 @@ export function Footer() {
           href="https://orcdev.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-foreground/70 hover:text-foreground"
+          className="text-foreground/70 hover:text-foreground underline"
         >
           OrcDev
         </Link>
