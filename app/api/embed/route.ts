@@ -53,9 +53,9 @@ export async function GET(req: NextRequest) {
     const series = history.slice(-90);
     const values = series.map((d) => d.stars);
 
-    const plotX = 20;
+    const plotX = 44;
     const plotY = 98;
-    const plotW = 660;
+    const plotW = 636;
     const plotH = 260;
 
     const { line, area } = buildSparkline(values, plotW, plotH);
@@ -90,9 +90,9 @@ export async function GET(req: NextRequest) {
     <line x1="0" y1="${Math.round(plotH / 2)}" x2="${plotW}" y2="${Math.round(plotH / 2)}" stroke="${theme.gridColor}" stroke-dasharray="4 4"/>
     <line x1="0" y1="0" x2="${plotW}" y2="0" stroke="${theme.gridColor}" stroke-dasharray="4 4"/>
 
-    <text x="-12" y="4" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="11" opacity="0.95">${formatStars(yMax)}</text>
-    <text x="-12" y="${Math.round(plotH / 2) + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="11" opacity="0.95">${formatStars(yMid)}</text>
-    <text x="-12" y="${plotH + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="11" opacity="0.95">0</text>
+    <text x="-10" y="4" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">${formatStars(yMax)}</text>
+    <text x="-10" y="${Math.round(plotH / 2) + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">${formatStars(yMid)}</text>
+    <text x="-10" y="${plotH + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">0</text>
 
     ${line ? `<polygon points="${area}" fill="url(#g)"/>` : ""}
     ${line ? `<polyline points="${line}" fill="none" stroke="${theme.lineColors[0]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}

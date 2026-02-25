@@ -25,7 +25,9 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
     if (repoNames.length === 0) return "";
     const repo = repoNames[0];
     const themeId = theme.id || "dark";
-    return `![RepoStars](https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)})`;
+    const img = `https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
+    const link = `https://repostars.dev/?repos=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
+    return `[![RepoStars](${img})](${link})`;
   }, [repoNames, theme.id]);
 
   const exportPng = useCallback(async () => {
