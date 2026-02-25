@@ -144,22 +144,13 @@ export async function GET(req: NextRequest) {
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 10,
-                background: theme.lineColors[0],
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 24,
-                fontWeight: 700,
-                color: theme.background,
-              }}
-            >
-              RS
-            </div>
+            <img
+              src={new URL("/repostars-logo.png", req.url).toString()}
+              width={42}
+              height={42}
+              style={{ borderRadius: 10 }}
+              alt="RepoStars logo"
+            />
             <div style={{ fontSize: 56, fontWeight: 800, color: "#fff" }}>RepoStars</div>
           </div>
           <div style={{ fontSize: 24, opacity: 0.8 }}>repostars.dev</div>
@@ -227,20 +218,7 @@ export async function GET(req: NextRequest) {
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            zIndex: 1,
-            marginTop: "auto",
-            fontSize: 22,
-            opacity: 0.75,
-          }}
-        >
-          <span>Live data - Theme:</span>
-          <span>{theme.name || "Dark"}</span>
-        </div>
+        <div style={{ marginTop: "auto" }} />
       </div>
     ),
     {
