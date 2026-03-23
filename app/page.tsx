@@ -64,7 +64,7 @@ export default async function Home({ searchParams }: PageProps) {
   const hasRepos = !!reposParam && reposParam.length > 0;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12">
+    <main className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
       <Hero compact={hasRepos} />
       <HomeContent
         initialRepos={[]}
