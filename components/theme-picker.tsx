@@ -8,16 +8,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type ChartTheme, themes } from "@/lib/themes";
+import { cn } from "@/lib/utils";
 
 interface ThemePickerProps {
+  className?: string;
   current: string;
   onChange: (themeId: string) => void;
 }
 
-export function ThemePicker({ current, onChange }: ThemePickerProps) {
+export function ThemePicker({
+  className,
+  current,
+  onChange,
+}: ThemePickerProps) {
   return (
     <Select onValueChange={onChange} value={current}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className={cn("w-full sm:w-[180px]", className)}>
         <SelectValue placeholder="Theme" />
       </SelectTrigger>
       <SelectContent>

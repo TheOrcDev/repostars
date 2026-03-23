@@ -1,37 +1,37 @@
 "use client";
 
-import { Check, Copy, ShareNetwork } from "@phosphor-icons/react";
+import {
+  Check,
+  Copy,
+  DownloadSimple,
+  LinkSimple,
+  XLogo,
+} from "@phosphor-icons/react";
 import { toPng } from "html-to-image";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { ChartTheme } from "@/lib/themes";
 
 interface ExportBarProps {
-  chartRef: React.RefObject<HTMLDivElement | null>;
   repoNames: string[];
   theme: ChartTheme;
 }
 
-export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
-  const [embedCopied, setEmbedCopied] = useState(false);
+interface HeaderShareActionsProps extends ExportBarProps {
+  chartRef: React.RefObject<HTMLDivElement | null>;
+}
 
-  const embedCode = useMemo(() => {
-    if (repoNames.length === 0) {
-      return "";
-    }
-    const repo = repoNames[0];
-    const themeId = theme.id || "dark";
-    const img = `https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
-    const link = `https://repostars.dev/?repos=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
-    return `[![RepoStars](${img})](${link})`;
-  }, [repoNames, theme.id]);
-
+function useShareActions({
+  chartRef,
+  repoNames,
+  theme,
+}: HeaderShareActionsProps) {
   const exportPng = useCallback(async () => {
     if (!chartRef.current) {
       return;
@@ -66,6 +66,86 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
     );
   }, []);
 
+  return { copyLink, exportPng, shareOnX };
+}
+
+interface ShareActionsProps {
+  onCopyLink: () => void;
+  onExportPng: () => void;
+  onShareOnX: () => void;
+}
+
+function ShareActions({
+  onCopyLink,
+  onExportPng,
+  onShareOnX,
+}: ShareActionsProps) {
+  const shareActions = [
+    {
+      icon: DownloadSimple,
+      key: "png",
+      label: "PNG",
+      onClick: onExportPng,
+      srLabel: "Export chart as PNG",
+    },
+    {
+      icon: LinkSimple,
+      key: "link",
+      label: "Copy URL",
+      onClick: onCopyLink,
+      srLabel: "Copy chart URL",
+    },
+    {
+      icon: XLogo,
+      key: "x",
+      label: "Share X",
+      onClick: onShareOnX,
+      srLabel: "Share chart on X",
+    },
+  ] as const;
+
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <TooltipProvider>
+        {shareActions.map(({ icon: Icon, key, label, onClick, srLabel }) => (
+          <Tooltip key={key}>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={srLabel}
+                className="min-w-0 gap-2 border-border/70 bg-background/90 sm:min-w-[7.25rem]"
+                onClick={onClick}
+                size="sm"
+                variant="outline"
+              >
+                <Icon size={16} weight="bold" />
+                <span className="hidden sm:inline">{label}</span>
+                <span className="sr-only sm:hidden">{srLabel}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="sm:hidden" side="bottom" sideOffset={8}>
+              {label}
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </TooltipProvider>
+    </div>
+  );
+}
+
+export function ExportBar({ repoNames, theme }: ExportBarProps) {
+  const [embedCopied, setEmbedCopied] = useState(false);
+
+  const embedCode = useMemo(() => {
+    if (repoNames.length === 0) {
+      return "";
+    }
+    const repo = repoNames[0];
+    const themeId = theme.id || "dark";
+    const img = `https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
+    const link = `https://repostars.dev/?repos=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
+    return `[![RepoStars](${img})](${link})`;
+  }, [repoNames, theme.id]);
+
   const copyReadmeEmbed = useCallback(() => {
     if (!embedCode) {
       return;
@@ -75,54 +155,48 @@ export function ExportBar({ chartRef, repoNames, theme }: ExportBarProps) {
     setTimeout(() => setEmbedCopied(false), 2000);
   }, [embedCode]);
 
-  return (
-    <div className="space-y-3">
-      <div>
-        <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Share
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button aria-label="Share options" size="icon" variant="outline">
-                <ShareNetwork size={16} weight="bold" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={exportPng}>
-                Export PNG
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={copyLink}>Copy URL</DropdownMenuItem>
-              <DropdownMenuItem onClick={shareOnX}>Share on X</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+  return embedCode ? (
+    <div>
+      <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+        README Embed
+      </p>
+      <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
+        <code className="truncate font-mono text-muted-foreground text-xs">
+          {embedCode}
+        </code>
+        <Button
+          aria-label="Copy README embed code"
+          onClick={copyReadmeEmbed}
+          size="icon"
+          variant="ghost"
+        >
+          {embedCopied ? (
+            <Check size={16} weight="bold" />
+          ) : (
+            <Copy size={16} weight="bold" />
+          )}
+        </Button>
       </div>
-
-      {embedCode && (
-        <div>
-          <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
-            README Embed
-          </p>
-          <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
-            <code className="truncate font-mono text-muted-foreground text-xs">
-              {embedCode}
-            </code>
-            <Button
-              aria-label="Copy README embed code"
-              onClick={copyReadmeEmbed}
-              size="icon"
-              variant="ghost"
-            >
-              {embedCopied ? (
-                <Check size={16} weight="bold" />
-              ) : (
-                <Copy size={16} weight="bold" />
-              )}
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
+  ) : null;
+}
+
+export function HeaderShareActions({
+  chartRef,
+  repoNames,
+  theme,
+}: HeaderShareActionsProps) {
+  const { copyLink, exportPng, shareOnX } = useShareActions({
+    chartRef,
+    repoNames,
+    theme,
+  });
+
+  return (
+    <ShareActions
+      onCopyLink={copyLink}
+      onExportPng={exportPng}
+      onShareOnX={shareOnX}
+    />
   );
 }

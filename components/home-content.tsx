@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { ChartSection } from "@/components/chart-section";
 import { EmptyState } from "@/components/empty-state";
-import { ExportBar } from "@/components/export-bar";
+import { ExportBar, HeaderShareActions } from "@/components/export-bar";
 import { RepoChips } from "@/components/repo-chips";
 import { RepoSearch } from "@/components/repo-search";
 import { ThemePicker } from "@/components/theme-picker";
@@ -48,7 +48,7 @@ export function HomeContent({
 
       {/* Control bar: chips + theme */}
       {hasRepos && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             <RepoChips
               onRemove={removeRepo}
@@ -59,7 +59,20 @@ export function HomeContent({
               themeId={themeId}
             />
           </div>
-          <ThemePicker current={themeId} onChange={setThemeId} />
+          <div className="w-full rounded-xl border bg-muted/30 p-2 lg:w-auto lg:min-w-fit">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <HeaderShareActions
+                chartRef={chartRef}
+                repoNames={repos.map((r) => r.info.fullName)}
+                theme={theme}
+              />
+              <ThemePicker
+                className="w-[9rem] shrink-0 border-border/70 bg-background/90 sm:w-[180px]"
+                current={themeId}
+                onChange={setThemeId}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -74,7 +87,6 @@ export function HomeContent({
           />
           <div className="border-t bg-muted/30 px-4 py-2">
             <ExportBar
-              chartRef={chartRef}
               repoNames={repos.map((r) => r.info.fullName)}
               theme={theme}
             />
