@@ -32,10 +32,12 @@ export function HomeContent({
   } = useRepos({ initialRepos, initialTheme, initialReposParam });
 
   const chartRef = useRef<HTMLDivElement>(null);
+  const hasRepos = repos.length > 0;
 
   return (
-    <>
-      <div className="mb-6">
+    <div className="flex flex-col gap-6">
+      {/* Search */}
+      <div>
         <RepoSearch
           loading={loading}
           onAdd={addRepo}
@@ -44,44 +46,43 @@ export function HomeContent({
         {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
       </div>
 
-      {repos.length > 0 && (
-        <div className="mb-4">
-          <RepoChips
-            onRemove={removeRepo}
-            repos={repos.map((r) => ({
-              name: r.info.fullName,
-              stars: r.info.stars,
-            }))}
-            themeId={themeId}
-          />
+      {/* Control bar: chips + theme */}
+      {hasRepos && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <RepoChips
+              onRemove={removeRepo}
+              repos={repos.map((r) => ({
+                name: r.info.fullName,
+                stars: r.info.stars,
+              }))}
+              themeId={themeId}
+            />
+          </div>
+          <ThemePicker current={themeId} onChange={setThemeId} />
         </div>
       )}
 
-      {repos.length > 0 ? (
-        <ChartSection
-          ref={chartRef}
-          repos={repos}
-          theme={theme}
-          themeId={themeId}
-        />
+      {/* Chart or empty state */}
+      {hasRepos ? (
+        <div className="overflow-hidden rounded-lg border shadow-sm">
+          <ChartSection
+            ref={chartRef}
+            repos={repos}
+            theme={theme}
+            themeId={themeId}
+          />
+          <div className="border-t bg-muted/30 px-4 py-2">
+            <ExportBar
+              chartRef={chartRef}
+              repoNames={repos.map((r) => r.info.fullName)}
+              theme={theme}
+            />
+          </div>
+        </div>
       ) : (
         <EmptyState loading={loading} onAdd={addRepo} />
       )}
-
-      <div className="mb-8">
-        <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
-          Theme
-        </p>
-        <ThemePicker current={themeId} onChange={setThemeId} />
-      </div>
-
-      {repos.length > 0 && (
-        <ExportBar
-          chartRef={chartRef}
-          repoNames={repos.map((r) => r.info.fullName)}
-          theme={theme}
-        />
-      )}
-    </>
+    </div>
   );
 }

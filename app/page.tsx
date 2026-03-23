@@ -25,7 +25,6 @@ export async function generateMetadata({
   const repoText =
     repoList.length > 0 ? repoList.join(" · ") : "GitHub repositories";
 
-  // Keep homepage OG static for reliability. Use dynamic OG only when repos are provided.
   const ogVersion = "4";
   const ogUrl =
     repoList.length > 0
@@ -62,9 +61,11 @@ export default async function Home({ searchParams }: PageProps) {
   const { repos: reposParam, theme } =
     await searchParamsCache.parse(searchParams);
 
+  const hasRepos = !!reposParam && reposParam.length > 0;
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
-      <Hero />
+      <Hero compact={hasRepos} />
       <HomeContent
         initialRepos={[]}
         initialReposParam={reposParam}
