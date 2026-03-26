@@ -8,6 +8,13 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Inter, Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geistHeading = Geist({subsets:['latin'],variable:'--font-heading'});
+
+const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+
 export const metadata: Metadata = {
   title: {
     default: "RepoStars — GitHub Star History Charts",
@@ -74,7 +81,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, geistHeading.variable)}>
       <head>
         <link href="https://fonts.googleapis.com" rel="preconnect" />
         <link

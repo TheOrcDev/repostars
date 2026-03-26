@@ -32,7 +32,6 @@ export function EmptyState({ onAdd, loading }: EmptyStateProps) {
   return (
     <div className="flex h-[450px] flex-col items-center justify-center gap-8 rounded-xl border border-dashed text-center">
       <div className="flex flex-col items-center gap-2">
-        <div className="mb-2 text-5xl">★</div>
         <p className="font-semibold text-lg">Add a repo to get started</p>
         <p className="max-w-sm text-muted-foreground text-sm">
           Search for any GitHub repository above, or try one of these popular
