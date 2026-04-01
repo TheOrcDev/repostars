@@ -7,7 +7,7 @@ export interface RepoData {
   info: RepoInfo;
 }
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 
 export async function getRepoDataCached(
   owner: string,

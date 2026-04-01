@@ -33,6 +33,10 @@ function repoHeaders() {
   return h;
 }
 
+function toIsoDate(ms: number) {
+  return new Date(ms).toISOString().split("T")[0];
+}
+
 export async function getRepoInfo(
   owner: string,
   repo: string
@@ -141,12 +145,34 @@ export async function getStarHistory(
   for (const point of sorted) {
     byDate.set(point.date, point);
   }
-  const anchors = Array.from(byDate.values()).sort(
+  const dedupedAnchors = Array.from(byDate.values()).sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  if (anchors.length < 2) {
-    return anchors;
+  if (dedupedAnchors.length === 0) {
+    return [];
+  }
+
+  const dayMs = 86_400_000;
+  const firstAnchor = dedupedAnchors[0];
+  const firstAnchorMs = new Date(firstAnchor.date).getTime();
+  const anchors: StarDataPoint[] = [
+    {
+      date: toIsoDate(Math.max(0, firstAnchorMs - dayMs)),
+      stars: 0,
+    },
+    ...dedupedAnchors,
+  ];
+
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const today = toIsoDate(todayMs);
+
+  if (anchors.length === 2) {
+    const singleDayHistory = [...anchors];
+    if (singleDayHistory.at(-1)?.date !== today) {
+      singleDayHistory.push({ date: today, stars: totalStars });
+    }
+    return singleDayHistory;
   }
 
   // Compute date range
@@ -159,7 +185,6 @@ export async function getStarHistory(
   const rangeMs = endMs - startMs;
 
   // Pick bin size based on range
-  const dayMs = 86_400_000;
   let binMs: number;
   const rangeDays = rangeMs / dayMs;
   if (rangeDays <= 90) {
@@ -172,31 +197,21 @@ export async function getStarHistory(
     binMs = dayMs * 30;
   }
 
-  // Interpolate between anchor points
+  // Sample as a staircase so growth stays truthful and visually punchy.
   const interpolated: StarDataPoint[] = [];
+  let anchorIndex = 0;
   for (let ms = startMs; ms <= endMs; ms += binMs) {
-    const date = new Date(ms).toISOString().split("T")[0];
-
-    // Binary search for surrounding anchors
-    let lo = 0,
-      hi = anchors.length - 1;
-    while (lo < hi - 1) {
-      const mid = Math.floor((lo + hi) / 2);
-      if (new Date(anchors[mid].date).getTime() <= ms) {
-        lo = mid;
-      } else {
-        hi = mid;
-      }
+    while (
+      anchorIndex + 1 < anchors.length &&
+      new Date(anchors[anchorIndex + 1].date).getTime() <= ms
+    ) {
+      anchorIndex += 1;
     }
 
-    const loMs = new Date(anchors[lo].date).getTime();
-    const hiMs = new Date(anchors[hi].date).getTime();
-    const t = hiMs === loMs ? 1 : (ms - loMs) / (hiMs - loMs);
-    const stars = Math.round(
-      anchors[lo].stars + t * (anchors[hi].stars - anchors[lo].stars)
-    );
-
-    interpolated.push({ date, stars });
+    interpolated.push({
+      date: toIsoDate(ms),
+      stars: anchors[anchorIndex].stars,
+    });
   }
 
   // Always include the last anchor
@@ -214,8 +229,6 @@ export async function getStarHistory(
       return interpolated;
     }
     const lastMs = new Date(lastPoint.date).getTime();
-    const todayMs = new Date().setHours(0, 0, 0, 0);
-    const today = new Date(todayMs).toISOString().split("T")[0];
 
     if (lastPoint.stars < totalStars && lastPoint.date !== today) {
       // Add synthetic points from last real data to today.
@@ -245,13 +258,22 @@ export async function getStarHistory(
         );
         prev = next;
 
-        const date = new Date(ms).toISOString().split("T")[0];
+        const date = toIsoDate(ms);
         interpolated.push({ date, stars: next });
       }
 
       // Final point at today with actual star count
       interpolated.push({ date: today, stars: totalStars });
     }
+  }
+
+  const finalPoint = interpolated.at(-1);
+  if (
+    finalPoint &&
+    finalPoint.date !== today &&
+    totalStars <= MAX_GITHUB_PAGES * 100
+  ) {
+    interpolated.push({ date: today, stars: totalStars });
   }
 
   return interpolated;

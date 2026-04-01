@@ -50,7 +50,7 @@ function interpolateAt(data: StarDataPoint[], dateMs: number): number {
   }
   const lastMs = new Date(lastPoint.date).getTime();
   if (dateMs <= firstMs) {
-    return data[0].stars;
+    return dateMs === firstMs ? data[0].stars : 0;
   }
   if (dateMs >= lastMs) {
     return lastPoint.stars;
@@ -68,13 +68,7 @@ function interpolateAt(data: StarDataPoint[], dateMs: number): number {
     }
   }
 
-  const loMs = new Date(data[lo].date).getTime();
-  const hiMs = new Date(data[hi].date).getTime();
-  if (hiMs === loMs) {
-    return data[lo].stars;
-  }
-  const t = (dateMs - loMs) / (hiMs - loMs);
-  return Math.round(data[lo].stars + t * (data[hi].stars - data[lo].stars));
+  return data[lo].stars;
 }
 
 // Merge multiple repos into a single timeline with interpolation
@@ -277,7 +271,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
                 key={name}
                 stroke={theme.lineColors[i % theme.lineColors.length]}
                 strokeWidth={2}
-                type="monotone"
+                type="stepAfter"
               />
             ))}
           </AreaChart>

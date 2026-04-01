@@ -8,7 +8,7 @@ export async function GET(
   const { owner, repo } = await params;
 
   try {
-    const { info, history } = await getRepoDataCached(owner, repo, "v2");
+    const { info, history } = await getRepoDataCached(owner, repo, "v3");
 
     return NextResponse.json(
       { info, history },
