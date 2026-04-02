@@ -68,18 +68,17 @@ function interpolateAt(data: StarDataPoint[], dateMs: number): number {
     }
   }
 
-  return data[lo].stars;
+  const loMs = new Date(data[lo].date).getTime();
+  const hiMs = new Date(data[hi].date).getTime();
+  if (hiMs === loMs) {
+    return data[lo].stars;
+  }
+  const t = (dateMs - loMs) / (hiMs - loMs);
+  return Math.round(data[lo].stars + t * (data[hi].stars - data[lo].stars));
 }
 
 // Merge multiple repos into a single timeline with interpolation
 function mergeData(repos: RepoData[]) {
-  if (repos.length === 1) {
-    return repos[0].data.map((d) => ({
-      date: d.date,
-      [repos[0].name]: d.stars,
-    }));
-  }
-
   // Build a unified timeline: use ~200 evenly spaced points across the full range
   let globalMin = Number.POSITIVE_INFINITY,
     globalMax = Number.NEGATIVE_INFINITY;
@@ -271,7 +270,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
                 key={name}
                 stroke={theme.lineColors[i % theme.lineColors.length]}
                 strokeWidth={2}
-                type="stepAfter"
+                type="monotone"
               />
             ))}
           </AreaChart>
