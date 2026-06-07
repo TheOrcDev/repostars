@@ -23,23 +23,22 @@ function esc(text: string) {
 
 function buildSparkline(values: number[], width: number, height: number) {
   if (values.length < 2) {
-    return { line: "", area: "" };
+    return { area: "", first: "", last: "", line: "" };
   }
   const min = 0;
   const max = Math.max(...values);
   const range = Math.max(1, max - min);
 
-  const line = values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * width;
-      const y = height - ((v - min) / range) * height;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * width;
+    const y = height - ((v - min) / range) * height;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const line = points.join(" ");
 
   const area = `${line} ${width},${height} 0,${height}`;
 
-  return { line, area };
+  return { area, first: points[0] ?? "", last: points.at(-1) ?? "", line };
 }
 
 export async function GET(req: NextRequest) {
@@ -64,9 +63,9 @@ export async function GET(req: NextRequest) {
     const plotW = 636;
     const plotH = 260;
 
-    const { line, area } = buildSparkline(values, plotW, plotH);
+    const { line, area, first, last } = buildSparkline(values, plotW, plotH);
 
-    const yMax = Math.max(...values, info.stars);
+    const yMax = Math.max(1, ...values, info.stars);
     const yMid = Math.round(yMax / 2);
 
     const startDate = series[0]?.date ?? "";
@@ -77,9 +76,12 @@ export async function GET(req: NextRequest) {
 <svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${theme.lineColors[0]}" stop-opacity="0.32"/>
+      <stop offset="0%" stop-color="${theme.lineColors[0]}" stop-opacity="0.36"/>
       <stop offset="100%" stop-color="${theme.lineColors[0]}" stop-opacity="0"/>
     </linearGradient>
+    <filter id="soft-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="${theme.lineColors[0]}" flood-opacity="0.34"/>
+    </filter>
   </defs>
 
   <rect x="0" y="0" width="700" height="420" fill="${theme.background}" rx="14"/>
@@ -91,17 +93,19 @@ export async function GET(req: NextRequest) {
   <text x="32" y="70" fill="${theme.lineColors[0]}" font-family="Geist, Inter, Segoe UI, Arial" font-size="23" font-weight="700">★ ${formatStars(info.stars)}</text>
 
   <g transform="translate(${plotX},${plotY})">
-    <line x1="0" y1="0" x2="0" y2="${plotH}" stroke="${theme.gridColor}"/>
-    <line x1="0" y1="${plotH}" x2="${plotW}" y2="${plotH}" stroke="${theme.gridColor}"/>
-    <line x1="0" y1="${Math.round(plotH / 2)}" x2="${plotW}" y2="${Math.round(plotH / 2)}" stroke="${theme.gridColor}" stroke-dasharray="4 4"/>
-    <line x1="0" y1="0" x2="${plotW}" y2="0" stroke="${theme.gridColor}" stroke-dasharray="4 4"/>
+    <line x1="0" y1="0" x2="0" y2="${plotH}" stroke="${theme.gridColor}" opacity="0.72"/>
+    <line x1="0" y1="${plotH}" x2="${plotW}" y2="${plotH}" stroke="${theme.gridColor}" opacity="0.72"/>
+    <line x1="0" y1="${Math.round(plotH / 2)}" x2="${plotW}" y2="${Math.round(plotH / 2)}" stroke="${theme.gridColor}" stroke-dasharray="4 4" opacity="0.72"/>
+    <line x1="0" y1="0" x2="${plotW}" y2="0" stroke="${theme.gridColor}" stroke-dasharray="4 4" opacity="0.72"/>
 
     <text x="-10" y="4" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">${formatStars(yMax)}</text>
     <text x="-10" y="${Math.round(plotH / 2) + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">${formatStars(yMid)}</text>
     <text x="-10" y="${plotH + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">0</text>
 
     ${line ? `<polygon points="${area}" fill="url(#g)"/>` : ""}
-    ${line ? `<polyline points="${line}" fill="none" stroke="${theme.lineColors[0]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+    ${line ? `<polyline points="${line}" fill="none" filter="url(#soft-glow)" stroke="${theme.lineColors[0]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+    ${first ? `<circle cx="${first.split(",")[0]}" cy="${first.split(",")[1]}" r="4" fill="${theme.background}" stroke="${theme.lineColors[0]}" stroke-width="2"/>` : ""}
+    ${last ? `<circle cx="${last.split(",")[0]}" cy="${last.split(",")[1]}" r="5" fill="${theme.lineColors[0]}" stroke="${theme.background}" stroke-width="2"/>` : ""}
 
     <text x="0" y="${plotH + 20}" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.82">${esc(startDate)}</text>
     <text x="${Math.round(plotW / 2)}" y="${plotH + 20}" text-anchor="middle" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.82">${esc(midDate)}</text>
