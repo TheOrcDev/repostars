@@ -136,7 +136,7 @@ export function mergeStarHistories(
     return [];
   }
 
-  if (populatedRepos.length === 1) {
+  if (populatedRepos.length === 1 && options.pointCount == null) {
     const [repo] = populatedRepos;
     return repo.data.map((point) => ({
       date: new Date(point.date),

@@ -82,6 +82,8 @@ export interface AreaProps {
   showMarkers?: boolean;
   /** Stroke color for the line. Default: same as fill */
   stroke?: string;
+  /** Shape of line ends and joins. Default: round */
+  strokeLinecap?: "butt" | "round" | "square";
   /** Stroke width. Default: 2 */
   strokeWidth?: number;
   /** Y-scale group id (Recharts `yAxisId`). Default: `"left"`. */
@@ -144,6 +146,7 @@ export function Area({
   markers,
   dashFromIndex,
   dashArray = "6,4",
+  strokeLinecap = "round",
   loading,
   loadingStroke = chartCssVars.foreground,
   loadingStrokeOpacity = 0.5,
@@ -256,7 +259,7 @@ export function Area({
             data={renderData}
             innerRef={pathRef}
             stroke={visibleStroke}
-            strokeLinecap="round"
+            strokeLinecap={strokeLinecap}
             strokeWidth={strokeWidth}
             x={(d) => xScale(xAccessor(d)) ?? 0}
             y={getY}

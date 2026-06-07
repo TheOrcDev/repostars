@@ -17,7 +17,6 @@ import {
 } from "@/components/charts/star-history-data";
 import { ChartTooltip } from "@/components/charts/tooltip/chart-tooltip";
 import type { TooltipRow } from "@/components/charts/tooltip/tooltip-content";
-import { XAxis } from "@/components/charts/x-axis";
 import { BitCard } from "@/components/ui/bit-card";
 import type { ChartTheme } from "@/lib/themes";
 
@@ -28,9 +27,19 @@ interface StarChart8BitProps {
 
 type ChartStyle = CSSProperties & Record<`--${string}`, string>;
 
+const BIT_TIMELINE_POINT_COUNT = 72;
+const BIT_AXIS_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  year: "2-digit",
+});
+
+function formatBitAxisDate(date: Date) {
+  return BIT_AXIS_DATE_FORMATTER.format(date).replace(" ", " '");
+}
+
 function YAxis() {
   const { yScale, innerHeight } = useChartStable();
-  const ticks = yScale.ticks?.(4) ?? [0];
+  const ticks = yScale.ticks?.(3) ?? [0];
 
   return (
     <g>
@@ -41,7 +50,7 @@ function YAxis() {
           fontFamily="'Press Start 2P', monospace"
           fontSize={7}
           key={tick}
-          opacity={0.9}
+          opacity={0.78}
           textAnchor="end"
           x={-12}
           y={Math.max(0, Math.min(innerHeight, yScale(tick) ?? 0))}
@@ -55,10 +64,123 @@ function YAxis() {
 
 YAxis.displayName = "YAxis";
 
+function PixelXAxis({ numTicks = 4 }: { numTicks?: number }) {
+  const { xScale, innerHeight } = useChartStable();
+  const [startDate, endDate] = xScale.domain();
+
+  if (!(startDate && endDate)) {
+    return null;
+  }
+
+  const startMs = startDate.getTime();
+  const spanMs = endDate.getTime() - startMs;
+  const tickCount = Math.max(2, numTicks);
+  const ticks = Array.from({ length: tickCount }, (_, index) => {
+    const progress = index / (tickCount - 1);
+    const date = new Date(startMs + spanMs * progress);
+    return {
+      date,
+      x: xScale(date) ?? 0,
+    };
+  });
+
+  return (
+    <g>
+      {ticks.map(({ date, x }) => (
+        <g key={date.getTime()} transform={`translate(${x},${innerHeight})`}>
+          <line
+            stroke="var(--chart-foreground)"
+            strokeWidth={2}
+            x1={0}
+            x2={0}
+            y1={0}
+            y2={6}
+          />
+          <text
+            dominantBaseline="hanging"
+            fill="var(--chart-foreground)"
+            fontFamily="'Press Start 2P', monospace"
+            fontSize={8}
+            opacity={0.9}
+            textAnchor="middle"
+            y={12}
+          >
+            {formatBitAxisDate(date)}
+          </text>
+        </g>
+      ))}
+    </g>
+  );
+}
+
+PixelXAxis.displayName = "XAxis";
+
+function PixelEndpointMarkers({
+  repoNames,
+  theme,
+}: {
+  repoNames: string[];
+  theme: ChartTheme;
+}) {
+  const { data, xAccessor, xScale, yScale } = useChartStable();
+
+  return (
+    <g shapeRendering="crispEdges">
+      {repoNames.map((name, index) => {
+        const color = theme.lineColors[index % theme.lineColors.length];
+        const points = data.flatMap((point) => {
+          const value = point[name];
+          if (typeof value !== "number") {
+            return [];
+          }
+          const x = xScale(xAccessor(point)) ?? 0;
+          const y = yScale(value) ?? 0;
+          return [{ x, y }];
+        });
+        const first = points[0];
+        const last = points.at(-1);
+
+        return (
+          <g key={name}>
+            {first ? (
+              <rect
+                fill={theme.background}
+                height={8}
+                stroke={color}
+                strokeWidth={2}
+                width={8}
+                x={first.x - 4}
+                y={first.y - 4}
+              />
+            ) : null}
+            {last ? (
+              <rect
+                fill={color}
+                height={10}
+                stroke={theme.background}
+                strokeWidth={2}
+                width={10}
+                x={last.x - 5}
+                y={last.y - 5}
+              />
+            ) : null}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+PixelEndpointMarkers.displayName = "SeriesMarkers";
+
 export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
   function StarChart8Bit({ repos, theme }, ref) {
     const rows = useMemo(
-      () => mergeStarHistories(repos, { step: true }),
+      () =>
+        mergeStarHistories(repos, {
+          pointCount: BIT_TIMELINE_POINT_COUNT,
+          step: true,
+        }),
       [repos]
     );
     const repoNames = useMemo(() => getRepoSeriesKeys(repos), [repos]);
@@ -69,6 +191,8 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
         color: theme.textColor,
         fontFamily: "'Press Start 2P', monospace",
         imageRendering: "pixelated",
+        shapeRendering: "crispEdges",
+        "--bit-border": theme.lineColors[0],
       }),
       [theme]
     );
@@ -136,14 +260,19 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
             aspectRatio="2 / 1"
             data={rows}
             margin={{ top: 24, right: 24, bottom: 36, left: 58 }}
-            style={{ minHeight: 360 }}
+            style={{ minHeight: "clamp(260px, 62vw, 360px)" }}
           >
             <Grid
+              fadeHorizontal={false}
+              fadeVertical={false}
               horizontal
+              numTicksColumns={4}
+              numTicksRows={4}
               stroke={theme.gridColor}
-              strokeDasharray="4,4"
-              strokeWidth={2}
-              vertical={false}
+              strokeDasharray="2,6"
+              strokeOpacity={0.72}
+              strokeWidth={1.5}
+              vertical
             />
             <YAxis />
             {repoNames.map((name, index) => (
@@ -152,19 +281,17 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
                 dataKey={name}
                 fadeEdges={false}
                 fill={theme.lineColors[index % theme.lineColors.length]}
-                fillOpacity={0.24}
-                gradientToOpacity={0.03}
+                fillOpacity={0.34}
+                gradientToOpacity={0.07}
                 key={name}
-                markers={{
-                  radius: 3.5,
-                  strokeWidth: 2,
-                }}
-                showMarkers={repoNames.length <= 2 && rows.length <= 120}
+                showMarkers={false}
                 stroke={theme.lineColors[index % theme.lineColors.length]}
-                strokeWidth={3}
+                strokeLinecap="butt"
+                strokeWidth={5}
               />
             ))}
-            <XAxis numTicks={4} />
+            <PixelEndpointMarkers repoNames={repoNames} theme={theme} />
+            <PixelXAxis numTicks={4} />
             <ChartTooltip
               panelStyle={{
                 background: theme.tooltipBg,
@@ -196,7 +323,7 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
                 ${theme.background}33 2px,
                 ${theme.background}33 4px
               )`,
-              opacity: 0.28,
+              opacity: 0.16,
             }}
           />
         </BitCard>
