@@ -1,19 +1,34 @@
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
-import { Geist, Inter } from "next/font/google";
+import { Montserrat, PT_Mono, Roboto } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-const geistHeading = Geist({ subsets: ["latin"], variable: "--font-heading" });
+const display = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-heading",
+  weight: ["500", "600", "700", "800"],
+  display: "swap",
+});
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const sans = Roboto({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  weight: ["300", "400", "500", "700"],
+  display: "swap",
+});
+
+const mono = PT_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -82,7 +97,12 @@ export default function RootLayout({
 }) {
   return (
     <html
-      className={cn("font-sans", inter.variable, geistHeading.variable)}
+      className={cn(
+        "font-sans",
+        sans.variable,
+        display.variable,
+        mono.variable
+      )}
       lang="en"
       suppressHydrationWarning
     >
@@ -98,9 +118,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body
-        className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen font-sans antialiased`}
-      >
+      <body className="min-h-screen font-sans antialiased">
         <Suspense>
           <NuqsAdapter>
             <ThemeProvider>
