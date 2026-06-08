@@ -72,6 +72,31 @@ function toPolyline(
     .join(" ");
 }
 
+function toAreaPoints(
+  values: number[],
+  width: number,
+  height: number,
+  maxY: number
+) {
+  const line = toPolyline(values, width, height, maxY);
+  return line ? `${line} ${width},${height} 0,${height}` : "";
+}
+
+function toPoint(
+  value: number,
+  index: number,
+  length: number,
+  width: number,
+  height: number,
+  maxY: number
+) {
+  const denom = Math.max(1, length - 1);
+  return {
+    x: (index / denom) * width,
+    y: height - (value / Math.max(1, maxY)) * height,
+  };
+}
+
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs = 1200
@@ -148,7 +173,6 @@ export async function GET(req: NextRequest) {
     series: makeSeries(r.stars, r.seed, 24, curve.power, curve.noise),
   }));
   const yMax = Math.max(1, ...withSeries.flatMap((r) => r.series));
-  const yMid = Math.round(yMax / 2);
 
   return new ImageResponse(
     <div
@@ -223,9 +247,32 @@ export async function GET(req: NextRequest) {
           viewBox="0 0 1080 300"
           width={1080}
         >
-          <title>Star history preview chart</title>
+          <defs>
+            {withSeries.map((repo, i) => (
+              <linearGradient
+                id={`og-area-${i}`}
+                key={`${repo.fullName}-gradient`}
+                x1="0"
+                x2="0"
+                y1="0"
+                y2="1"
+              >
+                <stop
+                  offset="0%"
+                  stopColor={theme.lineColors[i % theme.lineColors.length]}
+                  stopOpacity="0.34"
+                />
+                <stop
+                  offset="100%"
+                  stopColor={theme.lineColors[i % theme.lineColors.length]}
+                  stopOpacity="0"
+                />
+              </linearGradient>
+            ))}
+          </defs>
           <g transform="translate(50,18)">
             <line
+              opacity="0.72"
               stroke={theme.axisColor}
               strokeWidth="1"
               x1="0"
@@ -234,6 +281,7 @@ export async function GET(req: NextRequest) {
               y2={chartH}
             />
             <line
+              opacity="0.72"
               stroke={theme.gridColor}
               strokeDasharray="4 4"
               strokeWidth="1"
@@ -243,6 +291,7 @@ export async function GET(req: NextRequest) {
               y2={Math.round(chartH / 2)}
             />
             <line
+              opacity="0.72"
               stroke={theme.gridColor}
               strokeDasharray="4 4"
               strokeWidth="1"
@@ -252,42 +301,18 @@ export async function GET(req: NextRequest) {
               y2="0"
             />
 
-            {/* Y-axis labels on the left */}
-            <text
-              fill={theme.textColor}
-              fontSize="13"
-              opacity="0.9"
-              textAnchor="end"
-              x="-10"
-              y="6"
-            >
-              {formatStars(yMax)}
-            </text>
-            <text
-              fill={theme.textColor}
-              fontSize="13"
-              opacity="0.9"
-              textAnchor="end"
-              x="-10"
-              y={Math.round(chartH / 2) + 4}
-            >
-              {formatStars(yMid)}
-            </text>
-            <text
-              fill={theme.textColor}
-              fontSize="13"
-              opacity="0.9"
-              textAnchor="end"
-              x="-10"
-              y={chartH + 4}
-            >
-              0
-            </text>
+            {withSeries.map((repo, i) => (
+              <polygon
+                fill={`url(#og-area-${i})`}
+                key={`${repo.fullName}-area`}
+                points={toAreaPoints(repo.series, chartW, chartH, yMax)}
+              />
+            ))}
 
             {withSeries.map((repo, i) => (
               <polyline
                 fill="none"
-                key={repo.fullName}
+                key={`${repo.fullName}-line`}
                 points={toPolyline(repo.series, chartW, chartH, yMax)}
                 stroke={theme.lineColors[i % theme.lineColors.length]}
                 strokeLinecap="round"
@@ -295,6 +320,45 @@ export async function GET(req: NextRequest) {
                 strokeWidth="4"
               />
             ))}
+
+            {withSeries.map((repo, i) => {
+              const first = toPoint(
+                repo.series[0] ?? 0,
+                0,
+                repo.series.length,
+                chartW,
+                chartH,
+                yMax
+              );
+              const last = toPoint(
+                repo.series.at(-1) ?? 0,
+                repo.series.length - 1,
+                repo.series.length,
+                chartW,
+                chartH,
+                yMax
+              );
+              return (
+                <g key={`${repo.fullName}-markers`}>
+                  <circle
+                    cx={first.x}
+                    cy={first.y}
+                    fill={theme.background}
+                    r="4"
+                    stroke={theme.lineColors[i % theme.lineColors.length]}
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx={last.x}
+                    cy={last.y}
+                    fill={theme.lineColors[i % theme.lineColors.length]}
+                    r="6"
+                    stroke={theme.background}
+                    strokeWidth="2"
+                  />
+                </g>
+              );
+            })}
           </g>
         </svg>
 
