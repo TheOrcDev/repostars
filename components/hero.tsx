@@ -1,21 +1,88 @@
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { GitHubIcon } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { themeIds } from "@/lib/themes";
+
+const REPO_URL = "https://github.com/TheOrcDev/repostars";
+
 interface HeroProps {
   compact?: boolean;
 }
 
 export function Hero({ compact }: HeroProps) {
+  const highlights = [
+    `${themeIds.length} themes`,
+    "PNG export",
+    "Shareable links",
+    "README embed",
+  ];
+
   if (compact) {
-    return null;
+    return (
+      <section className="mx-auto max-w-5xl px-4 pt-10 pb-2 sm:px-6 sm:pt-14">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <span className="inline-flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
+            <span
+              aria-hidden="true"
+              className="size-1.5 rounded-full bg-brand"
+            />
+            Star history
+          </span>
+          <h1 className="text-balance font-heading font-semibold text-3xl tracking-tight sm:text-4xl">
+            Compare GitHub star history
+          </h1>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <div className="mb-10 text-center">
-      <h1 className="mb-3 font-bold text-4xl tracking-tight sm:text-5xl">
-        Compare GitHub Star History
-      </h1>
-      <p className="mx-auto max-w-md text-muted-foreground leading-relaxed">
-        Track, compare, and visualize star growth with beautiful themeable
-        charts. Add up to 5 repos.
-      </p>
-    </div>
+    <section className="mx-auto max-w-5xl px-4 pt-16 pb-10 sm:px-6 sm:pt-24 sm:pb-14">
+      <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+        <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.16em] shadow-sm">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />
+          Free &amp; open-source — no sign-up
+        </span>
+
+        <h1 className="mt-6 text-balance font-heading font-semibold text-4xl tracking-tight sm:text-5xl md:text-6xl md:leading-[1.05]">
+          GitHub star history, beautifully charted
+        </h1>
+
+        <p className="mt-5 max-w-xl text-pretty text-muted-foreground leading-relaxed sm:text-lg">
+          Track and compare star growth for up to five repositories. Pick from{" "}
+          {themeIds.length} themes, export a crisp PNG, and embed it straight in
+          your README.
+        </p>
+
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+          <Button asChild className="gap-2" size="lg">
+            <Link href="#compare">
+              Start comparing
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+          <Button asChild className="gap-2" size="lg" variant="outline">
+            <Link href={REPO_URL} rel="noopener noreferrer" target="_blank">
+              <GitHubIcon className="size-4" />
+              Star on GitHub
+            </Link>
+          </Button>
+        </div>
+
+        <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-muted-foreground text-sm">
+          {highlights.map((item, index) => (
+            <li className="flex items-center gap-2" key={item}>
+              {index > 0 && (
+                <span aria-hidden="true" className="text-border">
+                  •
+                </span>
+              )}
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
