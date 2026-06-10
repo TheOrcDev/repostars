@@ -33,6 +33,29 @@ function repoHeaders() {
   return h;
 }
 
+/**
+ * Cached stargazer count for a single repo (owner/repo). Returns 0 on any
+ * failure so a transient API hiccup never breaks the header.
+ */
+export async function getRepoStars(repo: string): Promise<number> {
+  "use cache";
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}`, {
+      headers: repoHeaders(),
+    });
+    if (!res.ok) {
+      return 0;
+    }
+    const data = await res.json();
+    return typeof data.stargazers_count === "number"
+      ? data.stargazers_count
+      : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function toIsoDate(ms: number) {
   return new Date(ms).toISOString().split("T")[0];
 }

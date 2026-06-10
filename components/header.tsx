@@ -1,10 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { GitHubIcon } from "@/components/icons";
+import { GitHubStarsButton } from "@/components/github-stars-button";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "./mode-toggle";
-
-const REPO_URL = "https://github.com/TheOrcDev/repostars";
 
 const navLinks = [
   { href: "#compare", label: "Compare" },
@@ -37,26 +35,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-1.5">
-          <Button
-            asChild
-            className="hidden gap-2 sm:inline-flex"
-            variant="outline"
-          >
-            <Link href={REPO_URL} rel="noopener noreferrer" target="_blank">
-              <GitHubIcon className="size-4" />
-              <span>Star</span>
-            </Link>
-          </Button>
-          <Button asChild className="sm:hidden" size="icon" variant="ghost">
-            <Link
-              aria-label="RepoStars on GitHub"
-              href={REPO_URL}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <GitHubIcon className="size-5" />
-            </Link>
-          </Button>
+          <GitHubStarsButton />
           <ModeToggle />
         </div>
       </div>
