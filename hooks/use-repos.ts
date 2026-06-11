@@ -1,6 +1,6 @@
 "use client";
 
-import { parseAsString, useQueryState } from "nuqs";
+import { parseAsString, useQueryStates } from "nuqs";
 import { useCallback, useEffect, useState } from "react";
 import type { RepoInfo, StarDataPoint } from "@/lib/github";
 import { defaultTheme, themes } from "@/lib/themes";
@@ -61,17 +61,16 @@ export function useRepos({
   initialTheme,
   initialReposParam = "",
 }: UseReposOptions = {}) {
-  const [themeId, setThemeId] = useQueryState(
-    "theme",
-    parseAsString
-      .withDefault(initialTheme || defaultTheme)
-      .withOptions({ history: "replace" })
-  );
-  const [reposParam, setReposParam] = useQueryState(
-    "repos",
-    parseAsString
-      .withDefault(initialReposParam)
-      .withOptions({ history: "replace" })
+  const [{ theme: themeId, repos: reposParam }, setParams] = useQueryStates(
+    {
+      theme: parseAsString
+        .withDefault(initialTheme || defaultTheme)
+        .withOptions({ history: "replace" }),
+      repos: parseAsString
+        .withDefault(initialReposParam)
+        .withOptions({ history: "replace" }),
+    },
+    { history: "replace" }
   );
 
   const [repos, setRepos] = useState<LoadedRepo[]>(initialRepos);
@@ -84,9 +83,16 @@ export function useRepos({
   const updateReposParam = useCallback(
     (loadedRepos: LoadedRepo[]) => {
       const value = loadedRepos.map((r) => r.info.fullName).join(",");
-      setReposParam(value || null);
+      setParams({ repos: value || null });
     },
-    [setReposParam]
+    [setParams]
+  );
+
+  const setThemeId = useCallback(
+    (id: string) => {
+      setParams({ theme: id });
+    },
+    [setParams]
   );
 
   const mergeRepos = useCallback((next: LoadedRepo[]) => {
