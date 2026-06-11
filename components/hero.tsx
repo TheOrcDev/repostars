@@ -23,11 +23,7 @@ export function Hero({ compact }: HeroProps) {
     return (
       <section className="mx-auto max-w-5xl px-4 pt-10 pb-2 sm:px-6 sm:pt-14">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="inline-flex items-center gap-2 font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
-            <span
-              aria-hidden="true"
-              className="size-1.5 rounded-full bg-brand"
-            />
+          <span className="font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
             Star history
           </span>
           <h1 className="text-balance font-heading font-semibold text-3xl tracking-tight sm:text-4xl">
@@ -49,11 +45,7 @@ export function Hero({ compact }: HeroProps) {
       />
       <div className="relative z-10 mx-auto max-w-5xl px-4 pt-16 pb-14 sm:px-6 sm:pt-24 sm:pb-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.16em] shadow-sm">
-            <span
-              aria-hidden="true"
-              className="size-1.5 rounded-full bg-brand"
-            />
+          <span className="inline-flex items-center rounded-full border bg-card px-3 py-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.16em] shadow-sm">
             Free &amp; open-source — no sign-up
           </span>
 
