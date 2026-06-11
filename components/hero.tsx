@@ -39,11 +39,15 @@ export function Hero({ compact }: HeroProps) {
   }
 
   return (
-    <section className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
+    <section className="relative">
+      <div className="pointer-events-none absolute inset-0 bg-muted/40 [mask-image:linear-gradient(to_bottom,black_55%,transparent)]">
         <SideRays origin="top-right" rayColor1="#EAB308" rayColor2="#8B5CF6" />
       </div>
-      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-16 pb-10 sm:px-6 sm:pt-24 sm:pb-14">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-36 bg-gradient-to-b from-transparent to-background sm:h-44"
+      />
+      <div className="relative z-10 mx-auto max-w-5xl px-4 pt-16 pb-14 sm:px-6 sm:pt-24 sm:pb-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 font-medium text-muted-foreground text-xs uppercase tracking-[0.16em] shadow-sm">
             <span

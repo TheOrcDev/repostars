@@ -35,7 +35,10 @@ export function HomeContent({
   const hasRepos = repos.length > 0;
 
   return (
-    <section className="mx-auto max-w-5xl px-4 sm:px-6" id="compare">
+    <section
+      className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14"
+      id="compare"
+    >
       <div className="rounded-2xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5 sm:p-6">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div className="flex flex-col gap-1">
