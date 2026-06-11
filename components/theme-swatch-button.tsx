@@ -30,9 +30,9 @@ export function ThemeSwatchButton({ theme }: ThemeSwatchButtonProps) {
   const colors = theme.lineColors;
 
   const handleClick = () => {
-    void setParams(
+    setParams(
       repos ? { theme: theme.id } : { theme: theme.id, repos: DEMO_REPOS }
-    );
+    ).catch(() => undefined);
     document.getElementById("compare")?.scrollIntoView({ behavior: "smooth" });
   };
 
