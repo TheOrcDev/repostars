@@ -89,8 +89,7 @@ export async function GET(req: NextRequest) {
 
   <text x="22" y="36" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="17" font-weight="600">${esc(info.fullName)}</text>
 
-  <rect x="20" y="46" width="170" height="36" rx="9" fill="${theme.gridColor}" opacity="0.45"/>
-  <text x="32" y="70" fill="${theme.lineColors[0]}" font-family="Geist, Inter, Segoe UI, Arial" font-size="23" font-weight="700">★ ${formatStars(info.stars)}</text>
+  <text x="678" y="37" text-anchor="end" fill="${theme.lineColors[0]}" font-family="Geist, Inter, Segoe UI, Arial" font-size="20" font-weight="700">★ ${formatStars(info.stars)}</text>
 
   <g transform="translate(${plotX},${plotY})">
     <line x1="0" y1="0" x2="0" y2="${plotH}" stroke="${theme.gridColor}" opacity="0.72"/>
