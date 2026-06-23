@@ -217,7 +217,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
                 radius: 3,
                 strokeWidth: 2,
               }}
-              showMarkers={repoNames.length <= 2 && rows.length <= 80}
+              showMarkers={repoNames.length === 2 && rows.length <= 80}
               stroke={theme.lineColors[index % theme.lineColors.length]}
               strokeWidth={2.4}
             />
