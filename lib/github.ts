@@ -1,5 +1,5 @@
 export interface StarDataPoint {
-  date: string; // ISO date
+  date: string; // ISO date or timestamp
   stars: number;
 }
 
@@ -16,6 +16,8 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const IS_AUTHENTICATED = Boolean(GITHUB_TOKEN);
 const GRAPHQL_STARGAZER_PAGE_SIZE = 100;
 const GRAPHQL_STARGAZER_MAX_PAGES = 1;
+const GRAPHQL_FULL_HISTORY_MAX_PAGES = 5;
+const RAW_HISTORY_MAX_POINTS = 750;
 
 function headers() {
   const h: Record<string, string> = {
@@ -101,7 +103,7 @@ async function fetchRestStargazerPage(
     data: data.map(
       (s: { starred_at: string }, idx: number) =>
         ({
-          date: s.starred_at.split("T")[0],
+          date: s.starred_at,
           stars: (page - 1) * 100 + idx + 1,
         }) as StarDataPoint
     ),
@@ -149,10 +151,12 @@ async function fetchGraphqlStargazers(
     throw new Error("GitHub star history requires a GITHUB_TOKEN.");
   }
 
-  const pageCount = Math.min(
-    Math.ceil(totalStars / GRAPHQL_STARGAZER_PAGE_SIZE),
-    GRAPHQL_STARGAZER_MAX_PAGES
-  );
+  const totalPages = Math.ceil(totalStars / GRAPHQL_STARGAZER_PAGE_SIZE);
+  const maxPages =
+    totalPages <= GRAPHQL_FULL_HISTORY_MAX_PAGES
+      ? GRAPHQL_FULL_HISTORY_MAX_PAGES
+      : GRAPHQL_STARGAZER_MAX_PAGES;
+  const pageCount = Math.min(totalPages, maxPages);
   const results: StarDataPoint[] = [];
   let after: string | null = null;
 
@@ -185,7 +189,7 @@ async function fetchGraphqlStargazers(
 
     for (const [idx, edge] of stargazers.edges.entries()) {
       results.push({
-        date: edge.starredAt.split("T")[0],
+        date: edge.starredAt,
         stars: page * GRAPHQL_STARGAZER_PAGE_SIZE + idx + 1,
       });
     }
@@ -318,6 +322,14 @@ export async function getStarHistory(
 
   const todayMs = new Date().setHours(0, 0, 0, 0);
   const today = toIsoDate(todayMs);
+  const finalAnchor = anchors.at(-1);
+
+  if (
+    finalAnchor?.stars === totalStars &&
+    anchors.length <= RAW_HISTORY_MAX_POINTS
+  ) {
+    return anchors;
+  }
 
   if (anchors.length === 2 && anchors[1]?.stars === totalStars) {
     const singleDayHistory = [...anchors];
