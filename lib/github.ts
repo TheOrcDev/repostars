@@ -14,6 +14,8 @@ export interface RepoInfo {
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const IS_AUTHENTICATED = Boolean(GITHUB_TOKEN);
+const GRAPHQL_STARGAZER_PAGE_SIZE = 100;
+const GRAPHQL_STARGAZER_MAX_PAGES = 1;
 
 function headers() {
   const h: Record<string, string> = {
@@ -31,6 +33,13 @@ function repoHeaders() {
     h.Authorization = `Bearer ${GITHUB_TOKEN}`;
   }
   return h;
+}
+
+function graphqlHeaders() {
+  return {
+    Authorization: `Bearer ${GITHUB_TOKEN}`,
+    "Content-Type": "application/json",
+  };
 }
 
 /**
@@ -58,6 +67,136 @@ export async function getRepoStars(repo: string): Promise<number> {
 
 function toIsoDate(ms: number) {
   return new Date(ms).toISOString().split("T")[0];
+}
+
+interface RestStargazerPage {
+  authBlocked: boolean;
+  data: StarDataPoint[];
+  rateLimited: boolean;
+}
+
+async function fetchRestStargazerPage(
+  owner: string,
+  repo: string,
+  page: number
+): Promise<RestStargazerPage> {
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
+    { headers: headers() }
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    return {
+      authBlocked:
+        res.status === 401 ||
+        body.includes("Resource not accessible by personal access token"),
+      data: [],
+      rateLimited: res.status === 403 || res.status === 429,
+    };
+  }
+
+  const data = await res.json();
+  return {
+    authBlocked: false,
+    data: data.map(
+      (s: { starred_at: string }, idx: number) =>
+        ({
+          date: s.starred_at.split("T")[0],
+          stars: (page - 1) * 100 + idx + 1,
+        }) as StarDataPoint
+    ),
+    rateLimited: false,
+  };
+}
+
+const STARGAZERS_QUERY = `
+  query Stargazers($owner: String!, $repo: String!, $after: String) {
+    repository(owner: $owner, name: $repo) {
+      stargazers(first: 100, after: $after) {
+        edges {
+          starredAt
+        }
+        pageInfo {
+          endCursor
+          hasNextPage
+        }
+      }
+    }
+  }
+`;
+
+interface StargazersGraphqlResponse {
+  data?: {
+    repository?: {
+      stargazers: {
+        edges: Array<{ starredAt: string }>;
+        pageInfo: {
+          endCursor: string | null;
+          hasNextPage: boolean;
+        };
+      };
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+}
+
+async function fetchGraphqlStargazers(
+  owner: string,
+  repo: string,
+  totalStars: number
+): Promise<StarDataPoint[]> {
+  if (!GITHUB_TOKEN) {
+    throw new Error("GitHub star history requires a GITHUB_TOKEN.");
+  }
+
+  const pageCount = Math.min(
+    Math.ceil(totalStars / GRAPHQL_STARGAZER_PAGE_SIZE),
+    GRAPHQL_STARGAZER_MAX_PAGES
+  );
+  const results: StarDataPoint[] = [];
+  let after: string | null = null;
+
+  for (let page = 0; page < pageCount; page++) {
+    const res = await fetch("https://api.github.com/graphql", {
+      body: JSON.stringify({
+        query: STARGAZERS_QUERY,
+        variables: { after, owner, repo },
+      }),
+      headers: graphqlHeaders(),
+      method: "POST",
+    });
+
+    if (!res.ok) {
+      if (res.status === 403 || res.status === 429) {
+        throw new Error("GitHub API rate limit exceeded. Try again later.");
+      }
+      throw new Error("Failed to fetch GitHub star history.");
+    }
+
+    const json = (await res.json()) as StargazersGraphqlResponse;
+    if (json.errors?.length) {
+      throw new Error(json.errors[0].message);
+    }
+
+    const stargazers = json.data?.repository?.stargazers;
+    if (!stargazers) {
+      throw new Error(`Repo not found: ${owner}/${repo}`);
+    }
+
+    for (const [idx, edge] of stargazers.edges.entries()) {
+      results.push({
+        date: edge.starredAt.split("T")[0],
+        stars: page * GRAPHQL_STARGAZER_PAGE_SIZE + idx + 1,
+      });
+    }
+
+    if (!(stargazers.pageInfo.hasNextPage && stargazers.pageInfo.endCursor)) {
+      break;
+    }
+    after = stargazers.pageInfo.endCursor;
+  }
+
+  return results;
 }
 
 export async function getRepoInfo(
@@ -120,40 +259,30 @@ export async function getStarHistory(
     pagesToFetch = [...new Set(pagesToFetch)];
   }
 
-  // Fire all requests at once — no sequential batching
-  const responses = await Promise.all(
-    pagesToFetch.map(async (page) => {
-      const res = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
-        { headers: headers() }
-      );
-      if (res.status === 403 || res.status === 429) {
-        return { rateLimited: true, data: [] };
-      }
-      if (!res.ok) {
-        return { rateLimited: false, data: [] };
-      }
-      const data = await res.json();
-      return {
-        rateLimited: false,
-        data: data.map(
-          (s: { starred_at: string }, idx: number) =>
-            ({
-              date: s.starred_at.split("T")[0],
-              stars: (page - 1) * 100 + idx + 1,
-            }) as StarDataPoint
-        ),
-      };
-    })
-  );
+  const probePage = pagesToFetch[0];
+  const probe = probePage
+    ? await fetchRestStargazerPage(owner, repo, probePage)
+    : null;
 
-  const results: StarDataPoint[] = [];
-  let rateLimited = false;
-  for (const r of responses) {
-    if (r.rateLimited) {
-      rateLimited = true;
+  let results: StarDataPoint[];
+  let rateLimited = Boolean(probe?.rateLimited);
+
+  if (probe?.authBlocked) {
+    results = await fetchGraphqlStargazers(owner, repo, totalStars);
+  } else {
+    const responses = await Promise.all(
+      pagesToFetch
+        .filter((page) => page !== probePage)
+        .map((page) => fetchRestStargazerPage(owner, repo, page))
+    );
+
+    results = probe?.data ?? [];
+    for (const r of responses) {
+      if (r.rateLimited) {
+        rateLimited = true;
+      }
+      results.push(...r.data);
     }
-    results.push(...r.data);
   }
 
   if (results.length === 0 && rateLimited) {
@@ -190,7 +319,7 @@ export async function getStarHistory(
   const todayMs = new Date().setHours(0, 0, 0, 0);
   const today = toIsoDate(todayMs);
 
-  if (anchors.length === 2) {
+  if (anchors.length === 2 && anchors[1]?.stars === totalStars) {
     const singleDayHistory = [...anchors];
     if (singleDayHistory.at(-1)?.date !== today) {
       singleDayHistory.push({ date: today, stars: totalStars });
@@ -243,10 +372,9 @@ export async function getStarHistory(
     interpolated.push(lastAnchor);
   }
 
-  // For repos > 40k stars, we only have data up to ~40k from the API.
-  // Keep the real data shape, then interpolate from the last known point
-  // to today's actual star count with additional data points.
-  if (totalStars > MAX_GITHUB_PAGES * 100 && interpolated.length > 0) {
+  // Keep the real data shape, then interpolate from the last known point to
+  // today's actual star count when the upstream API only returned a prefix.
+  if (interpolated.length > 0) {
     const lastPoint = interpolated.at(-1);
     if (!lastPoint) {
       return interpolated;
@@ -294,7 +422,7 @@ export async function getStarHistory(
   if (
     finalPoint &&
     finalPoint.date !== today &&
-    totalStars <= MAX_GITHUB_PAGES * 100
+    finalPoint.stars === totalStars
   ) {
     interpolated.push({ date: today, stars: totalStars });
   }
