@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getRepoDataCached } from "@/lib/repo-cache";
+import { getRepoData } from "@/lib/repo-cache";
 
 export async function GET(
   _req: NextRequest,
@@ -8,7 +8,7 @@ export async function GET(
   const { owner, repo } = await params;
 
   try {
-    const { info, history } = await getRepoDataCached(owner, repo, "v3");
+    const { info, history } = await getRepoData(owner, repo);
 
     return NextResponse.json(
       { info, history },

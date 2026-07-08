@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getRepoDataCached } from "@/lib/repo-cache";
+import { getRepoData } from "@/lib/repo-cache";
 import { defaultTheme, themes } from "@/lib/themes";
 
 function formatStars(n: number) {
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { info, history } = await getRepoDataCached(owner, name, "v2");
+    const { info, history } = await getRepoData(owner, name);
     const theme = themes[themeId] || themes[defaultTheme];
 
     const series = history.slice(-90);

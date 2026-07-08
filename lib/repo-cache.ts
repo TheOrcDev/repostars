@@ -1,4 +1,3 @@
-import { cacheLife, cacheTag } from "next/cache";
 import type { RepoInfo, StarDataPoint } from "@/lib/github";
 import { getRepoInfo, getStarHistory } from "@/lib/github";
 
@@ -7,18 +6,12 @@ export interface RepoData {
   info: RepoInfo;
 }
 
-const CACHE_VERSION = "v3";
-
-export async function getRepoDataCached(
+// Route handlers cache successful responses with Cache-Control headers. Keep
+// GitHub errors outside a "use cache" boundary so clients get readable JSON.
+export async function getRepoData(
   owner: string,
-  repo: string,
-  version: string = CACHE_VERSION
+  repo: string
 ): Promise<RepoData> {
-  "use cache";
-
-  cacheTag(`repo:${owner}/${repo}:${version}`);
-  cacheLife("hours");
-
   const info = await getRepoInfo(owner, repo);
   const history = await getStarHistory(owner, repo, info);
 
