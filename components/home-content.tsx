@@ -65,7 +65,7 @@ export function HomeContent({
             {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
           </div>
 
-          {/* Control bar: chips + theme */}
+          {/* Control bar: chips + share actions */}
           {hasRepos && (
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 flex-1">
@@ -79,21 +79,16 @@ export function HomeContent({
                 />
               </div>
               <div className="w-full rounded-xl border bg-muted/40 p-2 lg:w-auto lg:min-w-fit">
-                <div className="flex items-center gap-2 overflow-x-auto">
-                  <HeaderShareActions
-                    chartRef={chartRef}
-                    repoNames={repos.map((r) => r.info.fullName)}
-                    theme={theme}
-                  />
-                  <ThemePicker
-                    className="w-[9rem] shrink-0 border-border/70 bg-background/90 sm:w-[180px]"
-                    current={themeId}
-                    onChange={setThemeId}
-                  />
-                </div>
+                <HeaderShareActions
+                  chartRef={chartRef}
+                  repoNames={repos.map((r) => r.info.fullName)}
+                  theme={theme}
+                />
               </div>
             </div>
           )}
+
+          {hasRepos && <ThemePicker current={themeId} onChange={setThemeId} />}
 
           {/* Chart or empty state */}
           {hasRepos ? (
