@@ -14,6 +14,7 @@ import {
   useChartStable,
 } from "@/components/charts/chart-context";
 import { Grid } from "@/components/charts/grid";
+import { LaunchBurstLayer } from "@/components/charts/launch-burst-layer";
 import {
   formatFullDate,
   formatStars,
@@ -220,6 +221,14 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
               showMarkers={repoNames.length === 2 && rows.length <= 80}
               stroke={theme.lineColors[index % theme.lineColors.length]}
               strokeWidth={2.4}
+            />
+          ))}
+          {repoNames.map((name, index) => (
+            <LaunchBurstLayer
+              color={theme.lineColors[index % theme.lineColors.length]}
+              enabled={repoNames.length === 1}
+              key={`launch-${name}`}
+              seriesKey={name}
             />
           ))}
           <SelectionStatsBridge
