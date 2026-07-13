@@ -64,6 +64,124 @@ function YAxis({ fontSize = 12 }: { fontSize?: number }) {
 
 YAxis.displayName = "YAxis";
 
+function LatestValueMarker({
+  color,
+  repoName,
+  theme,
+}: {
+  color: string;
+  repoName: string;
+  theme: ChartTheme;
+}) {
+  const { data, innerHeight, innerWidth, xAccessor, xScale, yScale } =
+    useChartStable();
+
+  const marker = useMemo(() => {
+    const points = data.flatMap((point) => {
+      const value = point[repoName];
+      if (typeof value !== "number") {
+        return [];
+      }
+
+      const x = xScale(xAccessor(point));
+      const y = yScale(value);
+      if (x == null || y == null) {
+        return [];
+      }
+
+      return [{ value, x, y }];
+    });
+    const latest = points.at(-1);
+    if (!latest) {
+      return null;
+    }
+
+    const previousGainPoint = points
+      .slice(0, -1)
+      .findLast((point) => point.value < latest.value);
+
+    return {
+      ...latest,
+      previousGainPoint,
+    };
+  }, [data, repoName, xAccessor, xScale, yScale]);
+
+  if (!marker) {
+    return null;
+  }
+
+  const valueText = formatStars(marker.value);
+  const labelWidth = Math.max(42, valueText.length * 8 + 20);
+  const labelHeight = 22;
+  const labelGap = 9;
+  const labelOnLeft = marker.x + labelGap + labelWidth > innerWidth;
+  const labelX = labelOnLeft
+    ? Math.max(0, marker.x - labelGap - labelWidth)
+    : Math.min(innerWidth - labelWidth, marker.x + labelGap);
+  const labelY = Math.max(
+    0,
+    Math.min(innerHeight - labelHeight, marker.y - labelHeight / 2)
+  );
+
+  return (
+    <g pointerEvents="none">
+      {marker.previousGainPoint ? (
+        <>
+          <path
+            d={`M ${marker.previousGainPoint.x} ${marker.previousGainPoint.y} L ${marker.x} ${marker.y}`}
+            fill="none"
+            opacity="0.22"
+            stroke={color}
+            strokeLinecap="round"
+            strokeWidth="12"
+          />
+          <path
+            d={`M ${marker.previousGainPoint.x} ${marker.previousGainPoint.y} L ${marker.x} ${marker.y}`}
+            fill="none"
+            opacity="0.86"
+            stroke={color}
+            strokeLinecap="round"
+            strokeWidth="3.5"
+          />
+        </>
+      ) : null}
+      <g transform={`translate(${marker.x}, ${marker.y})`}>
+        <circle
+          fill={theme.background}
+          r={7}
+          stroke={color}
+          strokeWidth="2.5"
+        />
+        <circle fill={color} r={3.25} />
+      </g>
+      <g transform={`translate(${labelX}, ${labelY})`}>
+        <rect
+          fill={theme.tooltipBg}
+          height={labelHeight}
+          rx={5}
+          stroke={color}
+          strokeOpacity="0.9"
+          strokeWidth="1.5"
+          width={labelWidth}
+        />
+        <text
+          dominantBaseline="middle"
+          fill={theme.tooltipText}
+          fontSize="11"
+          fontWeight="700"
+          textAnchor="middle"
+          x={labelWidth / 2}
+          y={labelHeight / 2 + 0.5}
+        >
+          {valueText}
+        </text>
+      </g>
+    </g>
+  );
+}
+
+LatestValueMarker.displayName = "LatestValueMarker";
+
 function SelectionStatsBridge({
   onChange,
   repoNames,
@@ -209,7 +327,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
           {repoNames.map((name, index) => (
             <Area
               dataKey={name}
-              fadeEdges
+              fadeEdges="left"
               fill={theme.lineColors[index % theme.lineColors.length]}
               fillOpacity={theme.areaOpacity * 1.8}
               gradientToOpacity={0}
@@ -231,6 +349,13 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
               seriesKey={name}
             />
           ))}
+          {repoNames.length === 1 && repoNames[0] ? (
+            <LatestValueMarker
+              color={theme.lineColors[0]}
+              repoName={repoNames[0]}
+              theme={theme}
+            />
+          ) : null}
           <SelectionStatsBridge
             onChange={setRangeStats}
             repoNames={repoNames}

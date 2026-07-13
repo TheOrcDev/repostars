@@ -32,7 +32,7 @@ function buildPath(points: LaunchPoint[]) {
 }
 
 function pickMilestones(total: number) {
-  return [10, 25, 50, 100, 150, 200, 250, 500, 750].filter(
+  return [10, 25, 50, 100, 150, 200, 250, 300, 350, 500, 750].filter(
     (value) => value <= total
   );
 }
