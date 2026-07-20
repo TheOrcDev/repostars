@@ -32,22 +32,24 @@ export function RepoChips({ repos, themeId, onRemove }: RepoChipsProps) {
     <div className="flex flex-wrap gap-2">
       {repos.map((repo, i) => (
         <Badge
-          className="gap-2 py-1.5 pr-2 pl-2.5 font-normal text-sm"
+          className="h-auto max-w-full shrink gap-2 py-1 pr-1 pl-2.5 font-normal text-sm"
           key={repo.name}
           variant="outline"
         >
           <span
-            className="h-2.5 w-2.5 rounded-full"
+            aria-hidden="true"
+            className="size-2.5 shrink-0 rounded-full"
             style={{
               background: theme.lineColors[i % theme.lineColors.length],
             }}
           />
-          <span>{repo.name}</span>
-          <span className="text-muted-foreground">
+          <span className="min-w-0 truncate">{repo.name}</span>
+          <span className="shrink-0 text-muted-foreground">
             ★ {formatStars(repo.stars)}
           </span>
           <button
-            className="ml-0.5 text-muted-foreground transition-colors hover:text-destructive"
+            aria-label={`Remove ${repo.name}`}
+            className="ml-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onRemove(repo.name)}
             type="button"
           >

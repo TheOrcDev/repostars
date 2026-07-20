@@ -5,7 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { z } from "zod/v4";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { Field, FieldError } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
 const TRAILING_SLASH_RE = /\/$/;
@@ -77,13 +77,17 @@ export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
         name="repo"
         render={({ field, fieldState }) => (
           <Field data-invalid={fieldState.invalid}>
+            <FieldLabel className="sr-only" htmlFor="repo">
+              GitHub repository
+            </FieldLabel>
             <ButtonGroup>
               <Input
                 {...field}
+                aria-errormessage="repo-error"
                 aria-invalid={fieldState.invalid}
                 autoComplete="off"
                 disabled={loading}
-                id={field.name}
+                id="repo"
                 placeholder="owner/repo or GitHub URL"
               />
               <Button
@@ -97,7 +101,9 @@ export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
                 )}
               </Button>
             </ButtonGroup>
-            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+            {fieldState.invalid && (
+              <FieldError errors={[fieldState.error]} id="repo-error" />
+            )}
           </Field>
         )}
       />

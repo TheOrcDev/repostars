@@ -6,6 +6,7 @@ import { Montserrat, PT_Mono, Roboto } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +91,23 @@ export const metadata: Metadata = {
   },
 };
 
+function RouteLoadingFallback() {
+  return (
+    <main className="flex min-h-[70vh] items-center justify-center px-4 py-16">
+      <div
+        className="flex flex-col items-center gap-3 text-muted-foreground"
+        role="status"
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block size-8 animate-spin rounded-full border-2 border-current/30 border-t-current"
+        />
+        <p className="text-sm">Loading RepoStars…</p>
+      </div>
+    </main>
+  );
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -119,16 +137,15 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen font-sans antialiased">
-        <Suspense>
-          <NuqsAdapter>
-            <ThemeProvider>
-              <TooltipProvider>
-                <Header />
-                {children}
-              </TooltipProvider>
-            </ThemeProvider>
-          </NuqsAdapter>
-        </Suspense>
+        <ThemeProvider>
+          <TooltipProvider>
+            <Header />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <NuqsAdapter>{children}</NuqsAdapter>
+            </Suspense>
+          </TooltipProvider>
+          <Toaster />
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

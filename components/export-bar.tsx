@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { toPng } from "html-to-image";
 import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -47,13 +48,19 @@ function useShareActions({
       link.download = `repostars-${repoNames.map((n) => n.replace("/", "-")).join("_")}.png`;
       link.href = dataUrl;
       link.click();
-    } catch (err) {
-      console.error("Export failed:", err);
+      toast.success("Chart exported as PNG");
+    } catch {
+      toast.error("Couldn’t export the chart");
     }
   }, [chartRef, repoNames, theme]);
 
-  const copyLink = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
+  const copyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Chart URL copied");
+    } catch {
+      toast.error("Couldn’t copy the chart URL");
+    }
   }, []);
 
   const shareOnX = useCallback(() => {
@@ -146,13 +153,18 @@ export function ExportBar({ repoNames, theme }: ExportBarProps) {
     return `[![RepoStars](${img})](${link})`;
   }, [repoNames, theme.id]);
 
-  const copyReadmeEmbed = useCallback(() => {
+  const copyReadmeEmbed = useCallback(async () => {
     if (!embedCode) {
       return;
     }
-    navigator.clipboard.writeText(embedCode);
-    setEmbedCopied(true);
-    setTimeout(() => setEmbedCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(embedCode);
+      setEmbedCopied(true);
+      toast.success("README embed copied");
+      setTimeout(() => setEmbedCopied(false), 2000);
+    } catch {
+      toast.error("Couldn’t copy the README embed");
+    }
   }, [embedCode]);
 
   return embedCode ? (

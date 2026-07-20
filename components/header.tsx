@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import { GitHubStarsButton } from "@/components/github-stars-button";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "./mode-toggle";
@@ -35,7 +36,16 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-1.5">
-          <GitHubStarsButton />
+          <Suspense
+            fallback={
+              <span
+                aria-hidden="true"
+                className="h-8 w-16 animate-pulse rounded-lg bg-muted"
+              />
+            }
+          >
+            <GitHubStarsButton />
+          </Suspense>
           <ModeToggle />
         </div>
       </div>
