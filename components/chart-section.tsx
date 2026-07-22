@@ -18,13 +18,20 @@ export const ChartSection = forwardRef<HTMLDivElement, ChartSectionProps>(
       name: r.info.fullName,
       data: r.history,
     }));
+    const hasEstimatedHistory = repos.some((repo) => repo.estimated);
 
     return (
-      <div className="mb-6">
+      <div className="mb-6" ref={ref}>
+        {hasEstimatedHistory && (
+          <p className="border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
+            Estimated history — GitHub no longer exposes complete public star
+            timestamps.
+          </p>
+        )}
         {themeId === "8bit" ? (
-          <StarChart8Bit ref={ref} repos={repoData} theme={theme} />
+          <StarChart8Bit repos={repoData} theme={theme} />
         ) : (
-          <StarChart ref={ref} repos={repoData} theme={theme} />
+          <StarChart repos={repoData} theme={theme} />
         )}
       </div>
     );

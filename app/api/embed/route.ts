@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { info, history } = await getRepoData(owner, name);
+    const { estimated, info, history } = await getRepoData(owner, name);
     const theme = themes[themeId] || themes[defaultTheme];
 
     const series = history.slice(-90);
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     const endDate = series.at(-1)?.date ?? "";
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}">
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}${estimated ? " (estimated history)" : ""}">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${theme.lineColors[0]}" stop-opacity="0.36"/>
@@ -90,6 +90,8 @@ export async function GET(req: NextRequest) {
   <text x="22" y="36" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="17" font-weight="600">${esc(info.fullName)}</text>
 
   <text x="678" y="37" text-anchor="end" fill="${theme.lineColors[0]}" font-family="Geist, Inter, Segoe UI, Arial" font-size="20" font-weight="700">★ ${formatStars(info.stars)}</text>
+
+  ${estimated ? `<text x="22" y="64" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="12" opacity="0.82">Estimated history</text>` : ""}
 
   <g transform="translate(${plotX},${plotY})">
     <line x1="0" y1="0" x2="0" y2="${plotH}" stroke="${theme.gridColor}" opacity="0.72"/>

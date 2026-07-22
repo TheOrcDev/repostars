@@ -1,9 +1,17 @@
+import { fetchPublicStarHistory } from "@/lib/star-history-providers";
+
 export interface StarDataPoint {
   date: string; // ISO date or timestamp
   stars: number;
 }
 
+export interface StarHistoryResult {
+  estimated: boolean;
+  history: StarDataPoint[];
+}
+
 export interface RepoInfo {
+  createdAt: string;
   description: string;
   fullName: string;
   language: string | null;
@@ -14,9 +22,6 @@ export interface RepoInfo {
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const IS_AUTHENTICATED = Boolean(GITHUB_TOKEN);
-const GRAPHQL_STARGAZER_PAGE_SIZE = 100;
-const GRAPHQL_STARGAZER_MAX_PAGES = 1;
-const GRAPHQL_FULL_HISTORY_MAX_PAGES = 5;
 const RAW_HISTORY_MAX_POINTS = 750;
 
 function headers() {
@@ -35,13 +40,6 @@ function repoHeaders() {
     h.Authorization = `Bearer ${GITHUB_TOKEN}`;
   }
   return h;
-}
-
-function graphqlHeaders() {
-  return {
-    Authorization: `Bearer ${GITHUB_TOKEN}`,
-    "Content-Type": "application/json",
-  };
 }
 
 /**
@@ -88,12 +86,12 @@ async function fetchRestStargazerPage(
   );
   if (!res.ok) {
     const body = await res.text();
+    const rateLimited =
+      res.status === 429 || body.toLowerCase().includes("rate limit");
     return {
-      authBlocked:
-        res.status === 401 ||
-        body.includes("Resource not accessible by personal access token"),
+      authBlocked: res.status === 401 || (res.status === 403 && !rateLimited),
       data: [],
-      rateLimited: res.status === 403 || res.status === 429,
+      rateLimited,
     };
   }
 
@@ -109,98 +107,6 @@ async function fetchRestStargazerPage(
     ),
     rateLimited: false,
   };
-}
-
-const STARGAZERS_QUERY = `
-  query Stargazers($owner: String!, $repo: String!, $after: String) {
-    repository(owner: $owner, name: $repo) {
-      stargazers(first: 100, after: $after) {
-        edges {
-          starredAt
-        }
-        pageInfo {
-          endCursor
-          hasNextPage
-        }
-      }
-    }
-  }
-`;
-
-interface StargazersGraphqlResponse {
-  data?: {
-    repository?: {
-      stargazers: {
-        edges: Array<{ starredAt: string }>;
-        pageInfo: {
-          endCursor: string | null;
-          hasNextPage: boolean;
-        };
-      };
-    } | null;
-  };
-  errors?: Array<{ message: string }>;
-}
-
-async function fetchGraphqlStargazers(
-  owner: string,
-  repo: string,
-  totalStars: number
-): Promise<StarDataPoint[]> {
-  if (!GITHUB_TOKEN) {
-    throw new Error("GitHub star history requires a GITHUB_TOKEN.");
-  }
-
-  const totalPages = Math.ceil(totalStars / GRAPHQL_STARGAZER_PAGE_SIZE);
-  const maxPages =
-    totalPages <= GRAPHQL_FULL_HISTORY_MAX_PAGES
-      ? GRAPHQL_FULL_HISTORY_MAX_PAGES
-      : GRAPHQL_STARGAZER_MAX_PAGES;
-  const pageCount = Math.min(totalPages, maxPages);
-  const results: StarDataPoint[] = [];
-  let after: string | null = null;
-
-  for (let page = 0; page < pageCount; page++) {
-    const res = await fetch("https://api.github.com/graphql", {
-      body: JSON.stringify({
-        query: STARGAZERS_QUERY,
-        variables: { after, owner, repo },
-      }),
-      headers: graphqlHeaders(),
-      method: "POST",
-    });
-
-    if (!res.ok) {
-      if (res.status === 403 || res.status === 429) {
-        throw new Error("GitHub API rate limit exceeded. Try again later.");
-      }
-      throw new Error("Failed to fetch GitHub star history.");
-    }
-
-    const json = (await res.json()) as StargazersGraphqlResponse;
-    if (json.errors?.length) {
-      throw new Error(json.errors[0].message);
-    }
-
-    const stargazers = json.data?.repository?.stargazers;
-    if (!stargazers) {
-      throw new Error(`Repo not found: ${owner}/${repo}`);
-    }
-
-    for (const [idx, edge] of stargazers.edges.entries()) {
-      results.push({
-        date: edge.starredAt,
-        stars: page * GRAPHQL_STARGAZER_PAGE_SIZE + idx + 1,
-      });
-    }
-
-    if (!(stargazers.pageInfo.hasNextPage && stargazers.pageInfo.endCursor)) {
-      break;
-    }
-    after = stargazers.pageInfo.endCursor;
-  }
-
-  return results;
 }
 
 export async function getRepoInfo(
@@ -220,6 +126,7 @@ export async function getRepoInfo(
   return {
     owner,
     repo,
+    createdAt: data.created_at,
     fullName: data.full_name,
     description: data.description || "",
     stars: data.stargazers_count,
@@ -232,16 +139,21 @@ export async function getRepoInfo(
  * Accepts pre-fetched info to avoid double API call.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: intentionally consolidated data pipeline
-export async function getStarHistory(
+export async function getStarHistoryResult(
   owner: string,
   repo: string,
   info?: RepoInfo
-): Promise<StarDataPoint[]> {
+): Promise<StarHistoryResult> {
   const resolvedInfo = info ?? (await getRepoInfo(owner, repo));
   const totalStars = resolvedInfo.stars;
+  let estimated = false;
+  const result = (history: StarDataPoint[]): StarHistoryResult => ({
+    estimated,
+    history,
+  });
 
   if (totalStars === 0) {
-    return [];
+    return result([]);
   }
 
   // GitHub caps stargazer API at 400 pages (40,000 stars)
@@ -271,8 +183,20 @@ export async function getStarHistory(
   let results: StarDataPoint[];
   let rateLimited = Boolean(probe?.rateLimited);
 
-  if (probe?.authBlocked) {
-    results = await fetchGraphqlStargazers(owner, repo, totalStars);
+  const accessRestricted =
+    probe?.authBlocked ||
+    (probe !== null && probe.data.length === 0 && !probe.rateLimited);
+
+  if (accessRestricted) {
+    estimated = true;
+    const [canonicalOwner = owner, canonicalRepo = repo] =
+      resolvedInfo.fullName.split("/");
+    results = await fetchPublicStarHistory({
+      createdAt: resolvedInfo.createdAt,
+      owner: canonicalOwner,
+      repo: canonicalRepo,
+      totalStars,
+    });
   } else {
     const responses = await Promise.all(
       pagesToFetch
@@ -306,19 +230,22 @@ export async function getStarHistory(
   );
 
   if (dedupedAnchors.length === 0) {
-    return [];
+    return result([]);
   }
 
   const dayMs = 86_400_000;
   const firstAnchor = dedupedAnchors[0];
   const firstAnchorMs = new Date(firstAnchor.date).getTime();
-  const anchors: StarDataPoint[] = [
-    {
-      date: toIsoDate(Math.max(0, firstAnchorMs - dayMs)),
-      stars: 0,
-    },
-    ...dedupedAnchors,
-  ];
+  const anchors: StarDataPoint[] =
+    firstAnchor.stars === 0
+      ? dedupedAnchors
+      : [
+          {
+            date: toIsoDate(Math.max(0, firstAnchorMs - dayMs)),
+            stars: 0,
+          },
+          ...dedupedAnchors,
+        ];
 
   const todayMs = new Date().setHours(0, 0, 0, 0);
   const today = toIsoDate(todayMs);
@@ -328,7 +255,7 @@ export async function getStarHistory(
     finalAnchor?.stars === totalStars &&
     anchors.length <= RAW_HISTORY_MAX_POINTS
   ) {
-    return anchors;
+    return result(anchors);
   }
 
   if (anchors.length === 2 && anchors[1]?.stars === totalStars) {
@@ -336,14 +263,14 @@ export async function getStarHistory(
     if (singleDayHistory.at(-1)?.date !== today) {
       singleDayHistory.push({ date: today, stars: totalStars });
     }
-    return singleDayHistory;
+    return result(singleDayHistory);
   }
 
   // Compute date range
   const startMs = new Date(anchors[0].date).getTime();
   const endAnchor = anchors.at(-1);
   if (!endAnchor) {
-    return anchors;
+    return result(anchors);
   }
   const endMs = new Date(endAnchor.date).getTime();
   const rangeMs = endMs - startMs;
@@ -389,7 +316,7 @@ export async function getStarHistory(
   if (interpolated.length > 0) {
     const lastPoint = interpolated.at(-1);
     if (!lastPoint) {
-      return interpolated;
+      return result(interpolated);
     }
     const lastMs = new Date(lastPoint.date).getTime();
 
@@ -439,5 +366,14 @@ export async function getStarHistory(
     interpolated.push({ date: today, stars: totalStars });
   }
 
-  return interpolated;
+  return result(interpolated);
+}
+
+export async function getStarHistory(
+  owner: string,
+  repo: string,
+  info?: RepoInfo
+): Promise<StarDataPoint[]> {
+  const { history } = await getStarHistoryResult(owner, repo, info);
+  return history;
 }

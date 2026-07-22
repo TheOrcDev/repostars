@@ -6,6 +6,7 @@ import type { RepoInfo, StarDataPoint } from "@/lib/github";
 import { defaultTheme, themes } from "@/lib/themes";
 
 export interface LoadedRepo {
+  estimated: boolean;
   history: StarDataPoint[];
   info: RepoInfo;
 }
@@ -17,7 +18,7 @@ interface UseReposOptions {
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const CLIENT_CACHE_VERSION = "v3";
+const CLIENT_CACHE_VERSION = "v4";
 
 function cacheKey(fullName: string) {
   return `repostars:repo:${CLIENT_CACHE_VERSION}:${fullName.toLowerCase()}`;
@@ -142,6 +143,7 @@ export function useRepos({
                 return null;
               }
               const loaded: LoadedRepo = {
+                estimated: Boolean(data.estimated),
                 info: data.info,
                 history: data.history,
               };
@@ -185,7 +187,11 @@ export function useRepos({
           return;
         }
 
-        const loaded: LoadedRepo = { info: data.info, history: data.history };
+        const loaded: LoadedRepo = {
+          estimated: Boolean(data.estimated),
+          info: data.info,
+          history: data.history,
+        };
         writeCachedRepo(loaded);
 
         const updated = [...repos, loaded];

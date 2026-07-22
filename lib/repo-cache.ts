@@ -1,7 +1,8 @@
 import type { RepoInfo, StarDataPoint } from "@/lib/github";
-import { getRepoInfo, getStarHistory } from "@/lib/github";
+import { getRepoInfo, getStarHistoryResult } from "@/lib/github";
 
 export interface RepoData {
+  estimated: boolean;
   history: StarDataPoint[];
   info: RepoInfo;
 }
@@ -13,7 +14,7 @@ export async function getRepoData(
   repo: string
 ): Promise<RepoData> {
   const info = await getRepoInfo(owner, repo);
-  const history = await getStarHistory(owner, repo, info);
+  const { estimated, history } = await getStarHistoryResult(owner, repo, info);
 
-  return { info, history };
+  return { estimated, info, history };
 }

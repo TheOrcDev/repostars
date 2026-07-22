@@ -2,6 +2,13 @@
 
 All notable changes to RepoStars are listed here in plain language.
 
+## 2026-07-22
+
+### Public charts work again
+- Fixed the personal-access-token error that appeared for public repositories after GitHub restricted access to exact stargazer timestamps.
+- Added a public archive fallback and a clearly visible “Estimated history” label whenever exact timestamps are unavailable.
+- Kept current star totals sourced from GitHub, even when the historical curve must be estimated.
+
 ## 2026-02-25
 
 ### Better charts for real-world repos

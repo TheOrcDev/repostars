@@ -1,6 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getRepoData } from "@/lib/repo-cache";
 
+function errorStatus(error: unknown) {
+  if (error instanceof Error && error.message.includes("rate limit")) {
+    return 429;
+  }
+  if (error instanceof Error && error.message.startsWith("Repo not found:")) {
+    return 404;
+  }
+  return 502;
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ owner: string; repo: string }> }
@@ -8,10 +18,10 @@ export async function GET(
   const { owner, repo } = await params;
 
   try {
-    const { info, history } = await getRepoData(owner, repo);
+    const { estimated, info, history } = await getRepoData(owner, repo);
 
     return NextResponse.json(
-      { info, history },
+      { estimated, info, history },
       {
         headers: {
           "Cache-Control":
@@ -25,8 +35,7 @@ export async function GET(
         error: e instanceof Error ? e.message : "Failed to fetch star data",
       },
       {
-        status:
-          e instanceof Error && e.message.includes("rate limit") ? 429 : 404,
+        status: errorStatus(e),
       }
     );
   }

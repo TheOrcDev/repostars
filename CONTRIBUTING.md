@@ -57,7 +57,7 @@ pnpm dev
 
 ### Environment variables
 
-Optionally set `GITHUB_TOKEN` in `.env.local` for higher GitHub API rate limits (5,000/hr vs 60/hr). No scopes needed — just a personal access token with public repo read access.
+Optionally set `GITHUB_TOKEN` in `.env.local` for higher GitHub API rate limits. Exact stargazer timestamps are only available for repositories the token owner administers or collaborates on. Other public repositories use the app's labelled estimated-history fallback.
 
 ## Adding a New Theme
 
