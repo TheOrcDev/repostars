@@ -20,14 +20,16 @@ export async function GET(
       }
     );
   } catch (e) {
+    const message = e instanceof Error ? e.message : "";
+    const isRateLimit = message.includes("rate limit");
+
     return NextResponse.json(
       {
-        error: e instanceof Error ? e.message : "Failed to fetch star data",
+        error: isRateLimit
+          ? "GitHub API rate limit exceeded. Please try again later."
+          : `Repository "${owner}/${repo}" not found. Please check the name and try again.`,
       },
-      {
-        status:
-          e instanceof Error && e.message.includes("rate limit") ? 429 : 404,
-      }
+      { status: isRateLimit ? 429 : 404 }
     );
   }
 }
