@@ -25,6 +25,17 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const IS_AUTHENTICATED = Boolean(GITHUB_TOKEN);
 const RAW_HISTORY_MAX_POINTS = 750;
 
+let warnedMissingToken = false;
+function warnMissingToken() {
+  if (warnedMissingToken) {
+    return;
+  }
+  warnedMissingToken = true;
+  console.warn(
+    "GITHUB_TOKEN is not set. GitHub requires authentication for stargazer history, so charts fall back to estimated public data."
+  );
+}
+
 function headers() {
   const h: Record<string, string> = {
     Accept: "application/vnd.github.star+json",
@@ -89,8 +100,15 @@ async function fetchRestStargazerPage(
     const body = await res.text();
     const rateLimited =
       res.status === 429 || body.toLowerCase().includes("rate limit");
+    const authBlocked =
+      res.status === 401 || (res.status === 403 && !rateLimited);
+    if (authBlocked && IS_AUTHENTICATED) {
+      console.warn(
+        `GitHub rejected the stargazers request (HTTP ${res.status}). GITHUB_TOKEN is likely invalid, expired, or missing repo read access; charts fall back to estimated public data.`
+      );
+    }
     return {
-      authBlocked: res.status === 401 || (res.status === 403 && !rateLimited),
+      authBlocked,
       data: [],
       rateLimited,
     };
@@ -177,15 +195,23 @@ export async function getStarHistoryResult(
     pagesToFetch = [...new Set(pagesToFetch)];
   }
 
+  // GitHub now requires authentication on the stargazers endpoint, so an
+  // unauthenticated probe is a guaranteed 401 — skip straight to estimation.
+  if (!IS_AUTHENTICATED) {
+    warnMissingToken();
+  }
+
   const probePage = pagesToFetch[0];
-  const probe = probePage
-    ? await fetchRestStargazerPage(owner, repo, probePage)
-    : null;
+  const probe =
+    IS_AUTHENTICATED && probePage
+      ? await fetchRestStargazerPage(owner, repo, probePage)
+      : null;
 
   let results: StarDataPoint[];
   let rateLimited = Boolean(probe?.rateLimited);
 
   const accessRestricted =
+    !IS_AUTHENTICATED ||
     probe?.authBlocked ||
     (probe !== null && probe.data.length === 0 && !probe.rateLimited);
 
@@ -198,6 +224,7 @@ export async function getStarHistoryResult(
       owner: canonicalOwner,
       repoId: resolvedInfo.id,
       repo: canonicalRepo,
+      requestedName: `${owner}/${repo}`,
       totalStars,
     });
   } else {

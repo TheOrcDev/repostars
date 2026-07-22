@@ -66,7 +66,7 @@ describe("getStarHistory", () => {
       { date: "2024-02-01", stars: 2 },
       { date: TODAY, stars: 2 },
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(
       fetchMock.mock.calls.some(([input]) =>
         input.toString().includes("api.github.com/graphql")
@@ -116,7 +116,7 @@ describe("getStarHistory", () => {
       { date: "2026-02-23", stars: 0 },
       { date: TODAY, stars: 40 },
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("uses aggregate snapshots to preserve a repository's real growth shape", async () => {
@@ -302,6 +302,237 @@ describe("getStarHistory", () => {
       stars: 2,
     });
 
+    expect(result.estimated).toBe(true);
+    expect(result.history.at(-1)).toEqual({ date: TODAY, stars: 2 });
+  });
+
+  it("skips the stargazers probe and estimates when no token is configured", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "");
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const fetchMock = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          if (body.includes("github_repos_history")) {
+            return jsonResponse({ data: [] });
+          }
+          if (body.includes("github_events")) {
+            return jsonResponse({
+              data: [
+                { date: "2026-07-06", new_stars: "200" },
+                { date: "2026-07-10", new_stars: "160" },
+              ],
+            });
+          }
+        }
+
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "widget", {
+      createdAt: "2026-05-30T09:47:59Z",
+      description: "",
+      fullName: "acme/widget",
+      id: 5,
+      language: null,
+      owner: "acme",
+      repo: "widget",
+      stars: 396,
+    });
+
+    expect(result.estimated).toBe(true);
+    expect(result.history).toEqual([
+      { date: "2026-05-30", stars: 0 },
+      { date: "2026-07-06", stars: 220 },
+      { date: "2026-07-10", stars: 396 },
+      { date: TODAY, stars: 396 },
+    ]);
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        input.toString().includes("api.github.com")
+      )
+    ).toBe(false);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("falls back to estimation when GitHub rejects the token with a 401", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "expired-token");
+    const warnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    const fetchMock = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("api.github.com/repos/acme/widget/stargazers")) {
+          return jsonResponse(
+            { message: "Requires authentication" },
+            { status: 401 }
+          );
+        }
+
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          if (body.includes("github_repos_history")) {
+            return jsonResponse({ data: [] });
+          }
+          if (body.includes("github_events")) {
+            return jsonResponse({
+              data: [
+                { date: "2026-06-01", new_stars: 10 },
+                { date: "2026-06-15", new_stars: 10 },
+              ],
+            });
+          }
+        }
+
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "widget", {
+      createdAt: "2026-05-01T00:00:00Z",
+      description: "",
+      fullName: "acme/widget",
+      id: 6,
+      language: null,
+      owner: "acme",
+      repo: "widget",
+      stars: 21,
+    });
+
+    expect(result.estimated).toBe(true);
+    expect(result.history.at(-1)).toEqual({ date: TODAY, stars: 21 });
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("repairs sparse snapshot head and stale tail with real star events", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    const fetchMock = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("api.github.com/repos/acme/widget/stargazers")) {
+          return jsonResponse({ message: ACCESS_DENIED }, { status: 403 });
+        }
+
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          if (body.includes("github_repos_history")) {
+            return jsonResponse({
+              data: [
+                { date: "2026-01-01", stars: 100 },
+                { date: "2026-02-01", stars: 200 },
+                { date: "2026-03-01", stars: 300 },
+              ],
+            });
+          }
+          if (body.includes("github_events")) {
+            return jsonResponse({
+              data: [
+                { date: "2025-12-20", new_stars: 20 },
+                { date: "2026-01-05", new_stars: 50 },
+                { date: "2026-04-01", new_stars: 30 },
+                { date: "2026-06-01", new_stars: 70 },
+              ],
+            });
+          }
+        }
+
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "widget", {
+      createdAt: "2025-12-01T00:00:00Z",
+      description: "",
+      fullName: "acme/widget",
+      id: 8,
+      language: null,
+      owner: "acme",
+      repo: "widget",
+      stars: 500,
+    });
+
+    expect(result.estimated).toBe(true);
+    expect(result.history).toEqual([
+      { date: "2025-12-01", stars: 0 },
+      { date: "2025-12-20", stars: 100 },
+      { date: "2026-01-01", stars: 100 },
+      { date: "2026-02-01", stars: 200 },
+      { date: "2026-03-01", stars: 300 },
+      { date: "2026-04-01", stars: 360 },
+      { date: "2026-06-01", stars: 500 },
+      { date: TODAY, stars: 500 },
+    ]);
+  });
+
+  it("skips the event archive for repo names outside GitHub's charset", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    const fetchMock = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("api.github.com/repos/")) {
+          return jsonResponse({ message: ACCESS_DENIED }, { status: 403 });
+        }
+
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          if (body.includes("github_repos_history")) {
+            return jsonResponse({ data: [] });
+          }
+        }
+
+        if (url.includes("api.ossinsight.io")) {
+          return jsonResponse({
+            data: {
+              rows: [
+                { date: "2024-01-01", stargazers: "1" },
+                { date: "2024-02-01", stargazers: "2" },
+              ],
+            },
+          });
+        }
+
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "wid'get", {
+      createdAt: "2023-12-15T00:00:00Z",
+      description: "",
+      fullName: "acme/wid'get",
+      id: 7,
+      language: null,
+      owner: "acme",
+      repo: "wid'get",
+      stars: 2,
+    });
+
+    const eventQueries = fetchMock.mock.calls.filter(([, init]) =>
+      String(init?.body ?? "").includes("github_events")
+    );
+    expect(eventQueries).toHaveLength(0);
     expect(result.estimated).toBe(true);
     expect(result.history.at(-1)).toEqual({ date: TODAY, stars: 2 });
   });
