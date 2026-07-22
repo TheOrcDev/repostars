@@ -31,7 +31,7 @@ Optionally set `GITHUB_TOKEN` in `.env.local` for higher GitHub API rate limits.
 - Recharts
 - nuqs (URL search params)
 - GitHub REST API
-- OSS Insight public repository-event archive (estimated fallback)
+- ClickHouse public repository snapshots and OSS Insight event archive (estimated fallback)
 
 ## License
 

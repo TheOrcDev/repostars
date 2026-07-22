@@ -53,6 +53,7 @@ describe("getStarHistory", () => {
       createdAt: "2023-12-15T00:00:00Z",
       description: "",
       fullName: "acme/widget",
+      id: 1,
       language: null,
       owner: "acme",
       repo: "widget",
@@ -60,12 +61,12 @@ describe("getStarHistory", () => {
     });
 
     expect(history).toEqual([
-      { date: "2023-12-31", stars: 0 },
+      { date: "2023-12-15", stars: 0 },
       { date: "2024-01-01", stars: 1 },
       { date: "2024-02-01", stars: 2 },
       { date: TODAY, stars: 2 },
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(
       fetchMock.mock.calls.some(([input]) =>
         input.toString().includes("api.github.com/graphql")
@@ -87,8 +88,9 @@ describe("getStarHistory", () => {
         return jsonResponse({
           data: {
             rows: [
-              { date: "2024-01-01", stargazers: "1" },
-              { date: "2024-02-01", stargazers: "2" },
+              { date: "2026-02-25", stargazers: "1" },
+              { date: "2026-05-03", stargazers: "2" },
+              { date: "2026-07-05", stargazers: "3" },
             ],
           },
         });
@@ -100,20 +102,134 @@ describe("getStarHistory", () => {
 
     const { getStarHistory } = await import("@/lib/github");
     const history = await getStarHistory("acme", "widget", {
-      createdAt: "2024-01-15T10:00:00Z",
+      createdAt: "2026-02-23T10:00:00Z",
       description: "",
       fullName: "acme/widget",
+      id: 2,
       language: null,
       owner: "acme",
       repo: "widget",
-      stars: 10,
+      stars: 40,
     });
 
     expect(history).toEqual([
-      { date: "2024-01-15", stars: 0 },
-      { date: TODAY, stars: 10 },
+      { date: "2026-02-23", stars: 0 },
+      { date: TODAY, stars: 40 },
     ]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("uses aggregate snapshots to preserve a repository's real growth shape", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = input instanceof Request ? input.url : input.toString();
+
+      if (url.includes("api.github.com/repos/acme/widget/stargazers")) {
+        return jsonResponse({ message: ACCESS_DENIED }, { status: 403 });
+      }
+
+      if (url.includes("play.clickhouse.com")) {
+        return jsonResponse({
+          data: [
+            { date: "2025-04-23", stars: 237 },
+            { date: "2025-05-07", stars: 331 },
+            { date: "2025-06-06", stars: 496 },
+            { date: "2025-07-18", stars: 647 },
+            { date: "2025-09-11", stars: 914 },
+            { date: "2025-12-31", stars: 1389 },
+            { date: "2026-01-15", stars: 1482 },
+            { date: "2026-02-06", stars: 1554 },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "widget", {
+      createdAt: "2025-03-27T16:11:51Z",
+      description: "",
+      fullName: "acme/widget",
+      id: 956_053_274,
+      language: null,
+      owner: "acme",
+      repo: "widget",
+      stars: 1952,
+    });
+
+    expect(result.estimated).toBe(true);
+    expect(result.history).toContainEqual({
+      date: "2025-04-23",
+      stars: 237,
+    });
+    expect(result.history).toContainEqual({ date: "2025-12-31", stars: 1389 });
+    expect(result.history).toHaveLength(10);
+    expect(result.history.at(-1)).toEqual({ date: TODAY, stars: 1952 });
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        input.toString().includes("api.ossinsight.io")
+      )
+    ).toBe(false);
+  });
+
+  it("keeps a useful archive shape when aggregate snapshots are unavailable", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("api.github.com/repos/acme/widget/stargazers")) {
+          return jsonResponse({ message: ACCESS_DENIED }, { status: 403 });
+        }
+
+        if (url.includes("play.clickhouse.com")) {
+          return jsonResponse({ data: [] });
+        }
+
+        if (url.includes("api.ossinsight.io")) {
+          return jsonResponse({
+            data: {
+              rows: [
+                { date: "2025-03-31", stargazers: "3" },
+                { date: "2025-04-07", stargazers: "203" },
+                { date: "2025-04-14", stargazers: "247" },
+                { date: "2025-05-19", stargazers: "400" },
+                { date: "2025-08-25", stargazers: "651" },
+                { date: "2026-01-05", stargazers: "903" },
+                { date: "2026-04-13", stargazers: "1000" },
+                { date: "2026-06-29", stargazers: "1007" },
+              ],
+            },
+          });
+        }
+
+        throw new Error(`Unexpected request: ${url}`);
+      })
+    );
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "widget", {
+      createdAt: "2025-03-27T16:11:51Z",
+      description: "",
+      fullName: "acme/widget",
+      id: 956_053_274,
+      language: null,
+      owner: "acme",
+      repo: "widget",
+      stars: 1952,
+    });
+
+    expect(result.history).toContainEqual({
+      date: "2025-04-07",
+      stars: 394,
+    });
+    expect(result.history).toHaveLength(10);
+    expect(result.history.at(-1)).toEqual({ date: TODAY, stars: 1952 });
   });
 
   it("still returns an estimate when the public provider is unavailable", async () => {
@@ -137,6 +253,7 @@ describe("getStarHistory", () => {
       createdAt: "2024-01-15T10:00:00Z",
       description: "",
       fullName: "acme/widget",
+      id: 3,
       language: null,
       owner: "acme",
       repo: "widget",
@@ -178,6 +295,7 @@ describe("getStarHistory", () => {
       createdAt: "2023-12-15T00:00:00Z",
       description: "",
       fullName: "acme/widget",
+      id: 4,
       language: null,
       owner: "acme",
       repo: "widget",
@@ -202,6 +320,7 @@ describe("stars API route", () => {
             created_at: "2023-12-15T00:00:00Z",
             description: "Widget",
             full_name: "acme/widget",
+            id: 1,
             language: "TypeScript",
             stargazers_count: 2,
           });
@@ -252,6 +371,7 @@ describe("stars API route", () => {
             created_at: "2024-01-15T10:00:00Z",
             description: "Widget",
             full_name: "acme/widget",
+            id: 2,
             language: "TypeScript",
             stargazers_count: 2,
           });
@@ -292,6 +412,7 @@ describe("embed API route", () => {
             created_at: "2023-12-15T00:00:00Z",
             description: "Widget",
             full_name: "acme/widget",
+            id: 3,
             language: "TypeScript",
             stargazers_count: 2,
           });

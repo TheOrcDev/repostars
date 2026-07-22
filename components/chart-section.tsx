@@ -24,8 +24,7 @@ export const ChartSection = forwardRef<HTMLDivElement, ChartSectionProps>(
       <div className="mb-6" ref={ref}>
         {hasEstimatedHistory && (
           <p className="border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
-            Estimated history — GitHub no longer exposes complete public star
-            timestamps.
+            Estimated from public star activity — current star total is exact.
           </p>
         )}
         {themeId === "8bit" ? (

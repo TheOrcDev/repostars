@@ -1,26 +1,45 @@
 import type { StarDataPoint } from "@/lib/github";
 
+const CLICKHOUSE_API_URL = "https://play.clickhouse.com/";
+const CLICKHOUSE_USER = "play";
+const CLICKHOUSE_PASSWORD = "clickhouse";
+const CLICKHOUSE_TIMEOUT_MS = 3000;
 const OSS_INSIGHT_API_URL = "https://api.ossinsight.io/v1";
-const PROVIDER_TIMEOUT_MS = 8000;
+const OSS_INSIGHT_TIMEOUT_MS = 8000;
 const MAX_PROVIDER_ROWS = 1200;
-const MIN_ARCHIVE_COVERAGE = 0.9;
+const COMPLETE_ARCHIVE_COVERAGE = 0.9;
+const MIN_SHAPE_COVERAGE = 0.25;
+const MIN_SHAPE_POINTS = 8;
+const MIN_SHAPE_STARS = 25;
+const MIN_SHAPE_SPAN_MS = 28 * 24 * 60 * 60 * 1000;
+const MIN_SNAPSHOT_POINTS = 3;
 const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}/;
 
-interface HistoryRow {
+interface ArchiveHistoryRow {
   date?: unknown;
   stargazers?: unknown;
 }
 
-interface HistoryResponse {
+interface ArchiveHistoryResponse {
   data?: {
-    rows?: HistoryRow[];
+    rows?: ArchiveHistoryRow[];
   };
+}
+
+interface SnapshotHistoryRow {
+  date?: unknown;
+  stars?: unknown;
+}
+
+interface SnapshotHistoryResponse {
+  data?: SnapshotHistoryRow[];
 }
 
 interface PublicHistoryOptions {
   createdAt: string;
   owner: string;
   repo: string;
+  repoId: number;
   totalStars: number;
 }
 
@@ -32,24 +51,82 @@ function todayIsoDate() {
   return `${year}-${month}-${day}`;
 }
 
-function parseHistoryRows(rows: HistoryRow[] | undefined): StarDataPoint[] {
-  return (rows ?? [])
-    .slice(0, MAX_PROVIDER_ROWS)
-    .flatMap((row) => {
-      const date = typeof row.date === "string" ? row.date : "";
-      const stars = Number(row.stargazers);
-
-      if (!(date && Number.isFinite(stars) && stars > 0)) {
-        return [];
-      }
-
-      return [{ date, stars }];
-    })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+function parseDate(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const date = ISO_DATE_PREFIX.exec(value)?.[0];
+  return date && Number.isFinite(Date.parse(`${date}T00:00:00Z`)) ? date : null;
 }
 
-function normalizeToCurrentCount(
+function toMonotonicHistory(
+  rows: Array<{ date: unknown; stars: unknown }>
+): StarDataPoint[] {
+  const byDate = new Map<string, number>();
+  for (const row of rows.slice(0, MAX_PROVIDER_ROWS)) {
+    const date = parseDate(row.date);
+    const stars = Number(row.stars);
+    if (!(date && Number.isFinite(stars) && stars >= 0)) {
+      continue;
+    }
+    byDate.set(date, Math.max(byDate.get(date) ?? 0, Math.round(stars)));
+  }
+
+  let previous = 0;
+  return Array.from(byDate, ([date, stars]) => ({ date, stars }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((point) => {
+      previous = Math.max(previous, point.stars);
+      return { date: point.date, stars: previous };
+    });
+}
+
+function parseArchiveHistory(
+  rows: ArchiveHistoryRow[] | undefined
+): StarDataPoint[] {
+  return toMonotonicHistory(
+    (rows ?? []).map((row) => ({
+      date: row.date,
+      stars: row.stargazers,
+    }))
+  ).filter((point) => point.stars > 0);
+}
+
+function parseSnapshotHistory(
+  rows: SnapshotHistoryRow[] | undefined
+): StarDataPoint[] {
+  return toMonotonicHistory(
+    (rows ?? []).map((row) => ({ date: row.date, stars: row.stars }))
+  ).filter((point) => point.stars > 0);
+}
+
+function addKnownBoundaries(
   history: StarDataPoint[],
+  createdAt: string,
+  totalStars: number
+): StarDataPoint[] {
+  const today = todayIsoDate();
+  const createdDate = parseDate(createdAt);
+  const bounded = history.filter((point) => point.date <= today);
+  const firstPoint = bounded[0];
+
+  if (createdDate && (!firstPoint || createdDate < firstPoint.date)) {
+    bounded.unshift({ date: createdDate, stars: 0 });
+  }
+
+  const lastPoint = bounded.at(-1);
+  if (lastPoint?.date === today) {
+    lastPoint.stars = totalStars;
+  } else {
+    bounded.push({ date: today, stars: totalStars });
+  }
+
+  return bounded;
+}
+
+function normalizeArchiveShape(
+  history: StarDataPoint[],
+  createdAt: string,
   totalStars: number
 ): StarDataPoint[] {
   const observedStars = history.at(-1)?.stars ?? 0;
@@ -65,15 +142,40 @@ function normalizeToCurrentCount(
       : Math.round((point.stars / observedStars) * totalStars);
     const stars = Math.min(totalStars, Math.max(previous, scaled));
     previous = stars;
-
     return { date: point.date, stars };
   });
 
-  const today = todayIsoDate();
-  if (normalized.at(-1)?.date !== today) {
-    normalized.push({ date: today, stars: totalStars });
+  return addKnownBoundaries(normalized, createdAt, totalStars);
+}
+
+function historySpanMs(history: StarDataPoint[]) {
+  const first = history[0];
+  const last = history.at(-1);
+  if (!(first && last)) {
+    return 0;
   }
-  return normalized;
+  return new Date(last.date).getTime() - new Date(first.date).getTime();
+}
+
+function hasUsableSnapshotHistory(history: StarDataPoint[]) {
+  return (
+    history.length >= MIN_SNAPSHOT_POINTS &&
+    historySpanMs(history) >= MIN_SHAPE_SPAN_MS
+  );
+}
+
+function hasUsableArchiveShape(history: StarDataPoint[], totalStars: number) {
+  const observedStars = history.at(-1)?.stars ?? 0;
+  const coverage = totalStars > 0 ? observedStars / totalStars : 1;
+  const nearComplete =
+    history.length >= 2 && coverage >= COMPLETE_ARCHIVE_COVERAGE;
+  const usefulShapeProxy =
+    history.length >= MIN_SHAPE_POINTS &&
+    observedStars >= MIN_SHAPE_STARS &&
+    coverage >= MIN_SHAPE_COVERAGE &&
+    historySpanMs(history) >= MIN_SHAPE_SPAN_MS;
+
+  return nearComplete || usefulShapeProxy;
 }
 
 function createSnapshotEstimate(
@@ -81,7 +183,7 @@ function createSnapshotEstimate(
   totalStars: number
 ): StarDataPoint[] {
   const today = todayIsoDate();
-  const createdDate = ISO_DATE_PREFIX.exec(createdAt)?.[0];
+  const createdDate = parseDate(createdAt);
 
   if (!(createdDate && createdDate < today)) {
     return [{ date: today, stars: totalStars }];
@@ -93,10 +195,30 @@ function createSnapshotEstimate(
   ];
 }
 
-async function fetchOssInsightHistory(
-  owner: string,
-  repo: string
-): Promise<StarDataPoint[]> {
+async function fetchSnapshotHistory(repoId: number) {
+  if (!(Number.isSafeInteger(repoId) && repoId > 0)) {
+    return [];
+  }
+
+  const url = new URL(CLICKHOUSE_API_URL);
+  url.searchParams.set("user", CLICKHOUSE_USER);
+  url.searchParams.set("password", CLICKHOUSE_PASSWORD);
+  const query = `SELECT toDate(time) AS date, argMax(stargazers_count, time) AS stars FROM default.github_repos_history WHERE id = ${repoId} GROUP BY date ORDER BY date LIMIT ${MAX_PROVIDER_ROWS} FORMAT JSON`;
+  const response = await fetch(url, {
+    body: query,
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    method: "POST",
+    signal: AbortSignal.timeout(CLICKHOUSE_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    return [];
+  }
+
+  const json = (await response.json()) as SnapshotHistoryResponse;
+  return parseSnapshotHistory(json.data);
+}
+
+async function fetchArchiveHistory(owner: string, repo: string) {
   const url = new URL(
     `${OSS_INSIGHT_API_URL}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/stargazers/history/`
   );
@@ -106,30 +228,36 @@ async function fetchOssInsightHistory(
 
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    signal: AbortSignal.timeout(OSS_INSIGHT_TIMEOUT_MS),
   });
   if (!response.ok) {
     return [];
   }
 
-  const json = (await response.json()) as HistoryResponse;
-  return parseHistoryRows(json.data?.rows);
+  const json = (await response.json()) as ArchiveHistoryResponse;
+  return parseArchiveHistory(json.data?.rows);
 }
 
 export async function fetchPublicStarHistory({
   createdAt,
   owner,
   repo,
+  repoId,
   totalStars,
 }: PublicHistoryOptions): Promise<StarDataPoint[]> {
   try {
-    const history = await fetchOssInsightHistory(owner, repo);
-    const observedStars = history.at(-1)?.stars ?? 0;
-    const hasUsableCoverage =
-      history.length >= 2 && observedStars >= totalStars * MIN_ARCHIVE_COVERAGE;
+    const snapshots = await fetchSnapshotHistory(repoId);
+    if (hasUsableSnapshotHistory(snapshots)) {
+      return addKnownBoundaries(snapshots, createdAt, totalStars);
+    }
+  } catch {
+    // Fall through to the public event archive.
+  }
 
-    if (hasUsableCoverage) {
-      return normalizeToCurrentCount(history, totalStars);
+  try {
+    const archive = await fetchArchiveHistory(owner, repo);
+    if (hasUsableArchiveShape(archive, totalStars)) {
+      return normalizeArchiveShape(archive, createdAt, totalStars);
     }
   } catch {
     // The current aggregate count still supports an honest estimate below.

@@ -14,6 +14,7 @@ export interface RepoInfo {
   createdAt: string;
   description: string;
   fullName: string;
+  id: number;
   language: string | null;
   owner: string;
   repo: string;
@@ -128,6 +129,7 @@ export async function getRepoInfo(
     repo,
     createdAt: data.created_at,
     fullName: data.full_name,
+    id: data.id,
     description: data.description || "",
     stars: data.stargazers_count,
     language: data.language,
@@ -194,6 +196,7 @@ export async function getStarHistoryResult(
     results = await fetchPublicStarHistory({
       createdAt: resolvedInfo.createdAt,
       owner: canonicalOwner,
+      repoId: resolvedInfo.id,
       repo: canonicalRepo,
       totalStars,
     });

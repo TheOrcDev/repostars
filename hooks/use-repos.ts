@@ -18,10 +18,14 @@ interface UseReposOptions {
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const CLIENT_CACHE_VERSION = "v4";
+const CLIENT_CACHE_VERSION = "v5";
 
 function cacheKey(fullName: string) {
   return `repostars:repo:${CLIENT_CACHE_VERSION}:${fullName.toLowerCase()}`;
+}
+
+function repoApiUrl(owner: string, repo: string) {
+  return `/api/stars/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}?v=${CLIENT_CACHE_VERSION}`;
 }
 
 function readCachedRepo(fullName: string): LoadedRepo | null {
@@ -137,7 +141,7 @@ export function useRepos({
               return null;
             }
             try {
-              const res = await fetch(`/api/stars/${owner}/${repo}`);
+              const res = await fetch(repoApiUrl(owner, repo));
               const data = await res.json();
               if (!res.ok) {
                 return null;
@@ -179,7 +183,7 @@ export function useRepos({
       setError("");
 
       try {
-        const res = await fetch(`/api/stars/${owner}/${repo}`);
+        const res = await fetch(repoApiUrl(owner, repo));
         const data = await res.json();
 
         if (!res.ok) {

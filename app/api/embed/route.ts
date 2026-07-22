@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
 
   <text x="678" y="37" text-anchor="end" fill="${theme.lineColors[0]}" font-family="Geist, Inter, Segoe UI, Arial" font-size="20" font-weight="700">★ ${formatStars(info.stars)}</text>
 
-  ${estimated ? `<text x="22" y="64" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="12" opacity="0.82">Estimated history</text>` : ""}
+  ${estimated ? `<text x="22" y="64" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="12" opacity="0.82">Estimated history · current total exact</text>` : ""}
 
   <g transform="translate(${plotX},${plotY})">
     <line x1="0" y1="0" x2="0" y2="${plotH}" stroke="${theme.gridColor}" opacity="0.72"/>

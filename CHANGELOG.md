@@ -2,6 +2,13 @@
 
 All notable changes to RepoStars are listed here in plain language.
 
+## 2026-07-23
+
+### More realistic estimated charts
+- Preserved real historical aggregate snapshots when GitHub's exact stargazer timestamps are unavailable.
+- Kept substantial public activity curves instead of collapsing them into a straight creation-to-current line.
+- Clarified that estimated chart shapes still end at GitHub's exact current star total.
+
 ## 2026-07-22
 
 ### Public charts work again
