@@ -27,7 +27,10 @@ export function Header() {
           </span>
         </Link>
 
-        <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
+        <nav
+          aria-label="Primary"
+          className="flex min-w-0 flex-1 items-center justify-center gap-0.5 sm:gap-1"
+        >
           {navLinks.map((link) => (
             <Button asChild key={link.href} size="sm" variant="ghost">
               <Link href={link.href}>{link.label}</Link>

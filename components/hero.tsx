@@ -60,15 +60,15 @@ export function Hero({ compact }: HeroProps) {
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-            <Button asChild className="gap-2" size="lg">
+            <Button asChild size="lg">
               <Link href="#compare">
                 Start comparing
-                <ArrowRight className="size-4" />
+                <ArrowRight className="size-4" data-icon="inline-end" />
               </Link>
             </Button>
-            <Button asChild className="gap-2" size="lg" variant="outline">
+            <Button asChild size="lg" variant="outline">
               <Link href={REPO_URL} rel="noopener noreferrer" target="_blank">
-                <GitHubIcon className="size-4" />
+                <GitHubIcon className="size-4" data-icon="inline-start" />
                 Star on GitHub
               </Link>
             </Button>

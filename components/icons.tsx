@@ -1,12 +1,14 @@
 interface IconProps {
   className?: string;
+  "data-icon"?: "inline-start" | "inline-end";
 }
 
-export function GitHubIcon({ className }: IconProps) {
+export function GitHubIcon({ className, "data-icon": dataIcon }: IconProps) {
   return (
     <svg
       aria-hidden="true"
       className={className}
+      data-icon={dataIcon}
       fill="currentColor"
       role="img"
       viewBox="0 0 24 24"

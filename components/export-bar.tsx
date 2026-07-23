@@ -124,7 +124,7 @@ function ShareActions({
                 size="sm"
                 variant="outline"
               >
-                <Icon size={16} weight="bold" />
+                <Icon data-icon="inline-start" size={16} weight="bold" />
                 <span className="hidden sm:inline">{label}</span>
                 <span className="sr-only sm:hidden">{srLabel}</span>
               </Button>
