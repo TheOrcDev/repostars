@@ -10,6 +10,12 @@ export interface StarHistoryRow extends Record<string, Date | number> {
   date: Date;
 }
 
+export interface RepoLegendItem {
+  color: string;
+  name: string;
+  stars: number;
+}
+
 export interface RepoGain {
   color: string;
   current: number;
@@ -73,6 +79,21 @@ export function formatStars(value: number) {
 
 export function getRepoSeriesKeys(repos: RepoChartData[]) {
   return repos.map((repo) => repo.name);
+}
+
+/**
+ * Legend entries for the chart header. The final history point carries the
+ * repository's exact current star total, so no extra lookup is needed.
+ */
+export function getRepoLegendItems(
+  repos: RepoChartData[],
+  theme: ChartTheme
+): RepoLegendItem[] {
+  return repos.map((repo, index) => ({
+    color: theme.lineColors[index % theme.lineColors.length],
+    name: repo.name,
+    stars: repo.data.at(-1)?.stars ?? 0,
+  }));
 }
 
 export function interpolateStarsAt(
