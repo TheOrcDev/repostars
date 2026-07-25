@@ -11,6 +11,7 @@ import {
   formatFullDate,
   formatStars,
   getChartThemeVars,
+  getRepoLegendItems,
   getRepoSeriesKeys,
   mergeStarHistories,
   type RepoChartData,
@@ -19,6 +20,7 @@ import { ChartTooltip } from "@/components/charts/tooltip/chart-tooltip";
 import type { TooltipRow } from "@/components/charts/tooltip/tooltip-content";
 import { BitCard } from "@/components/ui/bit-card";
 import type { ChartTheme } from "@/lib/themes";
+import { cn } from "@/lib/utils";
 
 interface StarChart8BitProps {
   repos: RepoChartData[];
@@ -184,6 +186,10 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
       [repos]
     );
     const repoNames = useMemo(() => getRepoSeriesKeys(repos), [repos]);
+    const legendItems = useMemo(
+      () => getRepoLegendItems(repos, theme),
+      [repos, theme]
+    );
     const chartStyle = useMemo<ChartStyle>(
       () => ({
         ...getChartThemeVars(theme),
@@ -233,24 +239,31 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
           }}
         >
           <div className="mb-3 flex flex-wrap gap-4 text-[8px]">
-            {repoNames.map((name, index) => (
+            {legendItems.map((item) => (
               <div
-                className="flex min-w-0 max-w-[220px] items-center gap-1.5"
-                key={name}
+                className={cn(
+                  "flex min-w-0 items-center gap-1.5",
+                  // A single repo gets the full row; capping widths only keeps
+                  // side-by-side legends from crowding each other out.
+                  legendItems.length > 1 && "max-w-[220px]"
+                )}
+                key={item.name}
               >
                 <span
                   className="h-2.5 w-2.5 shrink-0"
                   style={{
-                    background:
-                      theme.lineColors[index % theme.lineColors.length],
+                    background: item.color,
                     border: `2px solid ${theme.background}`,
-                    outline: `1px solid ${
-                      theme.lineColors[index % theme.lineColors.length]
-                    }`,
+                    outline: `1px solid ${item.color}`,
                   }}
                 />
-                <span className="truncate" title={name}>
-                  {name}
+                <span className="truncate" title={item.name}>
+                  {item.name}
+                </span>
+                {/* Press Start 2P has no ★ glyph, so the ASCII star keeps the
+                    count inside the pixel font instead of a fallback face. */}
+                <span className="shrink-0 opacity-75">
+                  * {formatStars(item.stars)}
                 </span>
               </div>
             ))}

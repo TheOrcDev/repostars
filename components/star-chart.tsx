@@ -19,6 +19,7 @@ import {
   formatStars,
   getChartThemeVars,
   getRangeStats,
+  getRepoLegendItems,
   getRepoSeriesKeys,
   mergeStarHistories,
   type RangeStats,
@@ -29,6 +30,7 @@ import type { TooltipRow } from "@/components/charts/tooltip/tooltip-content";
 import { XAxis } from "@/components/charts/x-axis";
 import { StarCompanionCharts } from "@/components/star-companion-charts";
 import type { ChartTheme } from "@/lib/themes";
+import { cn } from "@/lib/utils";
 
 interface StarChartProps {
   repos: RepoChartData[];
@@ -139,6 +141,10 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
   function StarChart({ repos, theme }, ref) {
     const rows = useMemo(() => mergeStarHistories(repos), [repos]);
     const repoNames = useMemo(() => getRepoSeriesKeys(repos), [repos]);
+    const legendItems = useMemo(
+      () => getRepoLegendItems(repos, theme),
+      [repos, theme]
+    );
     const [rangeStats, setRangeStats] = useState<RangeStats | null>(null);
     const chartStyle = useMemo<ChartStyle>(
       () => ({
@@ -171,22 +177,27 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
 
     return (
       <div className="rounded-lg p-4" ref={ref} style={chartStyle}>
-        {repoNames.length > 0 ? (
+        {legendItems.length > 0 ? (
           <div className="mb-3 flex flex-wrap gap-4 text-[13px]">
-            {repoNames.map((name, index) => (
+            {legendItems.map((item) => (
               <div
-                className="flex min-w-0 max-w-[260px] items-center gap-1.5"
-                key={name}
+                className={cn(
+                  "flex min-w-0 items-center gap-1.5",
+                  // A single repo gets the full row; capping widths only keeps
+                  // side-by-side legends from crowding each other out.
+                  legendItems.length > 1 && "max-w-[260px]"
+                )}
+                key={item.name}
               >
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{
-                    background:
-                      theme.lineColors[index % theme.lineColors.length],
-                  }}
+                  style={{ background: item.color }}
                 />
-                <span className="truncate" title={name}>
-                  {name}
+                <span className="truncate" title={item.name}>
+                  {item.name}
+                </span>
+                <span className="shrink-0 tabular-nums opacity-75">
+                  ★ {formatStars(item.stars)}
                 </span>
               </div>
             ))}
