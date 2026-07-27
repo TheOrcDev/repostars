@@ -28,6 +28,40 @@ interface HeaderShareActionsProps extends ExportBarProps {
   chartRef: React.RefObject<HTMLDivElement | null>;
 }
 
+// Slack added to each label so a wider fallback face still fits its frozen box.
+const LABEL_EXPORT_SLACK_PX = 32;
+
+/**
+ * html-to-image clones the chart with every element's width frozen at its live
+ * value, then rasterises that clone without the page's web fonts. The fallback
+ * face is wider, so labels that fit on screen lose characters to their
+ * ellipsis. Widening the labels before the snapshot keeps them intact; the
+ * returned callback puts the live DOM back.
+ */
+function relaxLabelClipping(root: HTMLElement) {
+  const labels = Array.from(
+    root.querySelectorAll<HTMLElement>("[data-legend-label]")
+  );
+  const previous = labels.map((label) => label.getAttribute("style"));
+
+  for (const label of labels) {
+    const width = label.getBoundingClientRect().width;
+    label.style.textOverflow = "clip";
+    label.style.width = `${Math.ceil(width) + LABEL_EXPORT_SLACK_PX}px`;
+  }
+
+  return () => {
+    labels.forEach((label, index) => {
+      const style = previous[index];
+      if (style === null) {
+        label.removeAttribute("style");
+      } else {
+        label.setAttribute("style", style);
+      }
+    });
+  };
+}
+
 function useShareActions({
   chartRef,
   repoNames,
@@ -37,11 +71,11 @@ function useShareActions({
     if (!chartRef.current) {
       return;
     }
+    const restoreLabels = relaxLabelClipping(chartRef.current);
     try {
       const dataUrl = await toPng(chartRef.current, {
         pixelRatio: 2,
         backgroundColor: theme.background,
-        style: { font: "14px system-ui, sans-serif" },
         skipFonts: true,
       });
       const link = document.createElement("a");
@@ -51,6 +85,8 @@ function useShareActions({
       toast.success("Chart exported as PNG");
     } catch {
       toast.error("Couldn’t export the chart");
+    } finally {
+      restoreLabels();
     }
   }, [chartRef, repoNames, theme]);
 

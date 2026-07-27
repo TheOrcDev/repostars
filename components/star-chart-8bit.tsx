@@ -257,12 +257,12 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
                     outline: `1px solid ${item.color}`,
                   }}
                 />
-                <span className="truncate" title={item.name}>
+                <span className="truncate" data-legend-label title={item.name}>
                   {item.name}
                 </span>
                 {/* Press Start 2P has no ★ glyph, so the ASCII star keeps the
                     count inside the pixel font instead of a fallback face. */}
-                <span className="shrink-0 opacity-75">
+                <span className="shrink-0 whitespace-nowrap opacity-75">
                   * {formatStars(item.stars)}
                 </span>
               </div>

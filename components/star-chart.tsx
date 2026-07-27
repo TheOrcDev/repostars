@@ -193,10 +193,10 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ background: item.color }}
                 />
-                <span className="truncate" title={item.name}>
+                <span className="truncate" data-legend-label title={item.name}>
                   {item.name}
                 </span>
-                <span className="shrink-0 tabular-nums opacity-75">
+                <span className="shrink-0 whitespace-nowrap tabular-nums opacity-75">
                   ★ {formatStars(item.stars)}
                 </span>
               </div>
