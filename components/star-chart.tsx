@@ -1,6 +1,5 @@
 "use client";
 
-import { curveLinear } from "@visx/curve";
 import {
   type CSSProperties,
   forwardRef,
@@ -22,9 +21,7 @@ import {
   getRangeStats,
   getRepoLegendItems,
   getRepoSeriesKeys,
-  isSnapshotHistory,
   mergeStarHistories,
-  type RangeSeries,
   type RangeStats,
   type RepoChartData,
 } from "@/components/charts/star-history-data";
@@ -68,61 +65,16 @@ function YAxis({ fontSize = 12 }: { fontSize?: number }) {
 
 YAxis.displayName = "YAxis";
 
-function ObservedSnapshotMarkers({
-  repos,
-  theme,
-}: {
-  repos: RepoChartData[];
-  theme: ChartTheme;
-}) {
-  const { data, xAccessor, xScale, yScale } = useChartStable();
-
-  return (
-    <g>
-      {repos.map((repo, index) => {
-        if (!repo.estimated) {
-          return null;
-        }
-        const color = theme.lineColors[index % theme.lineColors.length];
-        const points = data.flatMap((point) => {
-          const value = point[repo.name];
-          if (typeof value !== "number") {
-            return [];
-          }
-          const date = xAccessor(point);
-          return [{ date, value }];
-        });
-        const markers = isSnapshotHistory(repo)
-          ? points
-          : [points[0], points.at(-1)].filter(
-              (point): point is (typeof points)[number] => point !== undefined
-            );
-        return markers.map(({ date, value }) => (
-          <circle
-            cx={xScale(date) ?? 0}
-            cy={yScale(value) ?? 0}
-            fill={theme.background}
-            key={`${repo.name}-${date.toISOString()}`}
-            r={4}
-            stroke={color}
-            strokeWidth={2}
-          />
-        ));
-      })}
-    </g>
-  );
-}
-
-ObservedSnapshotMarkers.displayName = "ChartMarkers";
-
 function SelectionStatsBridge({
   onChange,
+  repoNames,
   rows,
-  series,
+  theme,
 }: {
   onChange: (stats: RangeStats | null) => void;
+  repoNames: string[];
   rows: ReturnType<typeof mergeStarHistories>;
-  series: RangeSeries[];
+  theme: ChartTheme;
 }) {
   const { selection } = useChartHover();
 
@@ -132,9 +84,15 @@ function SelectionStatsBridge({
       return;
     }
     onChange(
-      getRangeStats(rows, series, selection.startIndex, selection.endIndex)
+      getRangeStats(
+        rows,
+        repoNames,
+        theme,
+        selection.startIndex,
+        selection.endIndex
+      )
     );
-  }, [onChange, rows, selection, series]);
+  }, [onChange, repoNames, rows, selection, theme]);
 
   return null;
 }
@@ -183,20 +141,6 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
   function StarChart({ repos, theme }, ref) {
     const rows = useMemo(() => mergeStarHistories(repos), [repos]);
     const repoNames = useMemo(() => getRepoSeriesKeys(repos), [repos]);
-    const exactRepoSeries = useMemo(
-      () =>
-        repos.flatMap((repo, index) =>
-          repo.estimated
-            ? []
-            : [
-                {
-                  color: theme.lineColors[index % theme.lineColors.length],
-                  name: repo.name,
-                },
-              ]
-        ),
-      [repos, theme]
-    );
     const legendItems = useMemo(
       () => getRepoLegendItems(repos, theme),
       [repos, theme]
@@ -225,13 +169,10 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
     }
 
     const tooltipRows = (point: Record<string, unknown>): TooltipRow[] =>
-      repos.map((repo, index) => ({
+      repoNames.map((name, index) => ({
         color: theme.lineColors[index % theme.lineColors.length],
-        label: repo.name,
-        value:
-          typeof point[repo.name] === "number"
-            ? formatStars(Number(point[repo.name]))
-            : "No snapshot",
+        label: name,
+        value: formatStars(Number(point[name] ?? 0)),
       }));
 
     return (
@@ -275,42 +216,29 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
             vertical={repoNames.length <= 2}
           />
           <YAxis />
-          {repos.map((repo, index) => {
-            const color = theme.lineColors[index % theme.lineColors.length];
-            return (
-              <Area
-                curve={repo.estimated ? curveLinear : undefined}
-                dataKey={repo.name}
-                fadeEdges={!repo.estimated}
-                fill={color}
-                fillOpacity={repo.estimated ? 0 : theme.areaOpacity * 1.8}
-                gradientToOpacity={0}
-                key={repo.name}
-                markers={{
-                  fill: repo.estimated ? theme.background : color,
-                  radius: repo.estimated ? 4 : 3,
-                  stroke: color,
-                  strokeWidth: 2,
-                }}
-                preserveDataPoints={repo.estimated && isSnapshotHistory(repo)}
-                showHighlight={!repo.estimated}
-                showMarkers={
-                  !repo.estimated && repoNames.length === 2 && rows.length <= 80
-                }
-                stroke={color}
-                strokeDasharray={repo.estimated ? "3 7" : undefined}
-                strokeWidth={repo.estimated ? 2 : 2.4}
-              />
-            );
-          })}
-          <ObservedSnapshotMarkers repos={repos} theme={theme} />
-          {exactRepoSeries.length > 0 ? (
-            <SelectionStatsBridge
-              onChange={setRangeStats}
-              rows={rows}
-              series={exactRepoSeries}
+          {repoNames.map((name, index) => (
+            <Area
+              dataKey={name}
+              fadeEdges
+              fill={theme.lineColors[index % theme.lineColors.length]}
+              fillOpacity={theme.areaOpacity * 1.8}
+              gradientToOpacity={0}
+              key={name}
+              markers={{
+                radius: 3,
+                strokeWidth: 2,
+              }}
+              showMarkers={repoNames.length === 2 && rows.length <= 80}
+              stroke={theme.lineColors[index % theme.lineColors.length]}
+              strokeWidth={2.4}
             />
-          ) : null}
+          ))}
+          <SelectionStatsBridge
+            onChange={setRangeStats}
+            repoNames={repoNames}
+            rows={rows}
+            theme={theme}
+          />
           <XAxis numTicks={5} />
           <ChartTooltip
             panelStyle={{
@@ -321,9 +249,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
           />
         </AreaChart>
 
-        {exactRepoSeries.length > 0 ? (
-          <RangeStatsPanel stats={rangeStats} theme={theme} />
-        ) : null}
+        <RangeStatsPanel stats={rangeStats} theme={theme} />
         {repos.length > 1 ? (
           <StarCompanionCharts repos={repos} theme={theme} />
         ) : null}

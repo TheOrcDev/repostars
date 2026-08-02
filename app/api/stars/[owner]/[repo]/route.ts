@@ -18,10 +18,10 @@ export async function GET(
   const { owner, repo } = await params;
 
   try {
-    const { estimated, info, history, source } = await getRepoData(owner, repo);
+    const { estimated, info, history } = await getRepoData(owner, repo);
 
     return NextResponse.json(
-      { estimated, info, history, source },
+      { estimated, info, history },
       {
         headers: {
           "Cache-Control":

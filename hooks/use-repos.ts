@@ -2,14 +2,13 @@
 
 import { parseAsString, useQueryStates } from "nuqs";
 import { useCallback, useEffect, useState } from "react";
-import type { RepoInfo, StarDataPoint, StarHistorySource } from "@/lib/github";
+import type { RepoInfo, StarDataPoint } from "@/lib/github";
 import { defaultTheme, themes } from "@/lib/themes";
 
 export interface LoadedRepo {
   estimated: boolean;
   history: StarDataPoint[];
   info: RepoInfo;
-  source: StarHistorySource;
 }
 
 interface UseReposOptions {
@@ -19,7 +18,7 @@ interface UseReposOptions {
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const CLIENT_CACHE_VERSION = "v9";
+const CLIENT_CACHE_VERSION = "v7";
 
 function cacheKey(fullName: string) {
   return `repostars:repo:${CLIENT_CACHE_VERSION}:${fullName.toLowerCase()}`;
@@ -151,10 +150,6 @@ export function useRepos({
                 estimated: Boolean(data.estimated),
                 info: data.info,
                 history: data.history,
-                source:
-                  data.source === "stargazers"
-                    ? "stargazers"
-                    : "public-snapshots",
               };
               writeCachedRepo(loaded);
               return loaded;
@@ -200,8 +195,6 @@ export function useRepos({
           estimated: Boolean(data.estimated),
           info: data.info,
           history: data.history,
-          source:
-            data.source === "stargazers" ? "stargazers" : "public-snapshots",
         };
         writeCachedRepo(loaded);
 

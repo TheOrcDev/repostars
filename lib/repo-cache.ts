@@ -1,11 +1,10 @@
-import type { RepoInfo, StarDataPoint, StarHistorySource } from "@/lib/github";
+import type { RepoInfo, StarDataPoint } from "@/lib/github";
 import { getRepoInfo, getStarHistoryResult } from "@/lib/github";
 
 export interface RepoData {
   estimated: boolean;
   history: StarDataPoint[];
   info: RepoInfo;
-  source: StarHistorySource;
 }
 
 // Route handlers cache successful responses with Cache-Control headers. Keep
@@ -15,13 +14,7 @@ export async function getRepoData(
   repo: string
 ): Promise<RepoData> {
   const info = await getRepoInfo(owner, repo);
-  const { currentStars, estimated, history, source } =
-    await getStarHistoryResult(owner, repo, info);
+  const { estimated, history } = await getStarHistoryResult(owner, repo, info);
 
-  return {
-    estimated,
-    history,
-    info: { ...info, stars: currentStars },
-    source,
-  };
+  return { estimated, info, history };
 }

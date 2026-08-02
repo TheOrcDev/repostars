@@ -18,7 +18,6 @@ export const ChartSection = forwardRef<HTMLDivElement, ChartSectionProps>(
       data: r.history,
       estimated: r.estimated,
       name: r.info.fullName,
-      source: r.source,
     }));
     const hasEstimatedHistory = repos.some((repo) => repo.estimated);
 
@@ -26,7 +25,7 @@ export const ChartSection = forwardRef<HTMLDivElement, ChartSectionProps>(
       <div className="mb-6" ref={ref}>
         {hasEstimatedHistory && (
           <p className="border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
-            Plotted points are real observations; dashed gaps are unknown. The
+            Estimated and interpolated from public snapshots and star activity —
             current star total is exact.
           </p>
         )}

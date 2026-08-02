@@ -1,6 +1,6 @@
 "use client";
 
-import { curveLinear, curveStepAfter } from "@visx/curve";
+import { curveStepAfter } from "@visx/curve";
 import { type CSSProperties, forwardRef, useMemo } from "react";
 import { Area } from "@/components/charts/area";
 import { AreaChart } from "@/components/charts/area-chart";
@@ -12,7 +12,7 @@ import {
   formatStars,
   getChartThemeVars,
   getRepoLegendItems,
-  isSnapshotHistory,
+  getRepoSeriesKeys,
   mergeStarHistories,
   type RepoChartData,
 } from "@/components/charts/star-history-data";
@@ -29,6 +29,7 @@ interface StarChart8BitProps {
 
 type ChartStyle = CSSProperties & Record<`--${string}`, string>;
 
+const BIT_TIMELINE_POINT_COUNT = 72;
 const BIT_AXIS_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "2-digit",
@@ -116,19 +117,18 @@ function PixelXAxis({ numTicks = 4 }: { numTicks?: number }) {
 
 PixelXAxis.displayName = "XAxis";
 
-function PixelSnapshotMarkers({
-  repos,
+function PixelEndpointMarkers({
+  repoNames,
   theme,
 }: {
-  repos: RepoChartData[];
+  repoNames: string[];
   theme: ChartTheme;
 }) {
   const { data, xAccessor, xScale, yScale } = useChartStable();
 
   return (
     <g shapeRendering="crispEdges">
-      {repos.map((repo, index) => {
-        const name = repo.name;
+      {repoNames.map((name, index) => {
         const color = theme.lineColors[index % theme.lineColors.length];
         const points = data.flatMap((point) => {
           const value = point[name];
@@ -137,37 +137,35 @@ function PixelSnapshotMarkers({
           }
           const x = xScale(xAccessor(point)) ?? 0;
           const y = yScale(value) ?? 0;
-          return [{ key: xAccessor(point).toISOString(), x, y }];
+          return [{ x, y }];
         });
+        const first = points[0];
         const last = points.at(-1);
-        let markers = points;
-        if (!isSnapshotHistory(repo) && points.length > 1) {
-          markers = [points[0], points.at(-1)].filter(
-            (point): point is (typeof points)[number] => point !== undefined
-          );
-        }
 
         return (
           <g key={name}>
-            {markers.map((point) => {
-              if (!point) {
-                return null;
-              }
-              const isLast = point === last;
-              const size = isLast ? 10 : 8;
-              return (
-                <rect
-                  fill={isLast ? color : theme.background}
-                  height={size}
-                  key={`${name}-${point.key}`}
-                  stroke={color}
-                  strokeWidth={2}
-                  width={size}
-                  x={point.x - size / 2}
-                  y={point.y - size / 2}
-                />
-              );
-            })}
+            {first ? (
+              <rect
+                fill={theme.background}
+                height={8}
+                stroke={color}
+                strokeWidth={2}
+                width={8}
+                x={first.x - 4}
+                y={first.y - 4}
+              />
+            ) : null}
+            {last ? (
+              <rect
+                fill={color}
+                height={10}
+                stroke={theme.background}
+                strokeWidth={2}
+                width={10}
+                x={last.x - 5}
+                y={last.y - 5}
+              />
+            ) : null}
           </g>
         );
       })}
@@ -175,11 +173,19 @@ function PixelSnapshotMarkers({
   );
 }
 
-PixelSnapshotMarkers.displayName = "ChartMarkers";
+PixelEndpointMarkers.displayName = "SeriesMarkers";
 
 export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
   function StarChart8Bit({ repos, theme }, ref) {
-    const rows = useMemo(() => mergeStarHistories(repos), [repos]);
+    const rows = useMemo(
+      () =>
+        mergeStarHistories(repos, {
+          pointCount: BIT_TIMELINE_POINT_COUNT,
+          step: true,
+        }),
+      [repos]
+    );
+    const repoNames = useMemo(() => getRepoSeriesKeys(repos), [repos]);
     const legendItems = useMemo(
       () => getRepoLegendItems(repos, theme),
       [repos, theme]
@@ -216,13 +222,10 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
     }
 
     const tooltipRows = (point: Record<string, unknown>): TooltipRow[] =>
-      repos.map((repo, index) => ({
+      repoNames.map((name, index) => ({
         color: theme.lineColors[index % theme.lineColors.length],
-        label: repo.name,
-        value:
-          typeof point[repo.name] === "number"
-            ? formatStars(Number(point[repo.name]))
-            : "NO SNAPSHOT",
+        label: name,
+        value: formatStars(Number(point[name] ?? 0)),
       }));
 
     return (
@@ -285,25 +288,22 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
               vertical
             />
             <YAxis />
-            {repos.map((repo, index) => (
+            {repoNames.map((name, index) => (
               <Area
-                curve={repo.estimated ? curveLinear : curveStepAfter}
-                dataKey={repo.name}
+                curve={curveStepAfter}
+                dataKey={name}
                 fadeEdges={false}
                 fill={theme.lineColors[index % theme.lineColors.length]}
-                fillOpacity={repo.estimated ? 0 : 0.34}
+                fillOpacity={0.34}
                 gradientToOpacity={0.07}
-                key={repo.name}
-                preserveDataPoints={repo.estimated && isSnapshotHistory(repo)}
-                showHighlight={!repo.estimated}
+                key={name}
                 showMarkers={false}
                 stroke={theme.lineColors[index % theme.lineColors.length]}
-                strokeDasharray={repo.estimated ? "4 8" : undefined}
                 strokeLinecap="butt"
-                strokeWidth={repo.estimated ? 4 : 5}
+                strokeWidth={5}
               />
             ))}
-            <PixelSnapshotMarkers repos={repos} theme={theme} />
+            <PixelEndpointMarkers repoNames={repoNames} theme={theme} />
             <PixelXAxis numTicks={4} />
             <ChartTooltip
               panelStyle={{

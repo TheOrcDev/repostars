@@ -5,13 +5,9 @@ export interface StarDataPoint {
   stars: number;
 }
 
-export type StarHistorySource = "public-snapshots" | "stargazers";
-
 export interface StarHistoryResult {
-  currentStars: number;
   estimated: boolean;
   history: StarDataPoint[];
-  source: StarHistorySource;
 }
 
 export interface RepoInfo {
@@ -27,6 +23,7 @@ export interface RepoInfo {
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const IS_AUTHENTICATED = Boolean(GITHUB_TOKEN);
+const RAW_HISTORY_MAX_POINTS = 750;
 
 let warnedMissingToken = false;
 function warnMissingToken() {
@@ -35,7 +32,7 @@ function warnMissingToken() {
   }
   warnedMissingToken = true;
   console.warn(
-    "GITHUB_TOKEN is not set. GitHub restricts stargazer history to repository admins and collaborators, so charts fall back to observed public snapshots."
+    "GITHUB_TOKEN is not set. GitHub requires authentication for stargazer history, so charts fall back to estimated public data."
   );
 }
 
@@ -80,10 +77,13 @@ export async function getRepoStars(repo: string): Promise<number> {
   }
 }
 
+function toIsoDate(ms: number) {
+  return new Date(ms).toISOString().split("T")[0];
+}
+
 interface RestStargazerPage {
   authBlocked: boolean;
   data: StarDataPoint[];
-  failed: boolean;
   rateLimited: boolean;
 }
 
@@ -92,70 +92,38 @@ async function fetchRestStargazerPage(
   repo: string,
   page: number
 ): Promise<RestStargazerPage> {
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
-      { headers: headers() }
-    );
-  } catch {
-    return {
-      authBlocked: false,
-      data: [],
-      failed: true,
-      rateLimited: false,
-    };
-  }
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
+    { headers: headers() }
+  );
   if (!res.ok) {
     const body = await res.text();
     const rateLimited =
       res.status === 429 || body.toLowerCase().includes("rate limit");
     const authBlocked =
-      res.status === 401 ||
-      res.status === 404 ||
-      (res.status === 403 && !rateLimited);
+      res.status === 401 || (res.status === 403 && !rateLimited);
     if (authBlocked && IS_AUTHENTICATED) {
       console.warn(
-        `GitHub rejected the stargazers request (HTTP ${res.status}). Stargazer history now requires repository admin or collaborator access; charts fall back to observed public snapshots.`
+        `GitHub rejected the stargazers request (HTTP ${res.status}). GITHUB_TOKEN is likely invalid, expired, or missing repo read access; charts fall back to estimated public data.`
       );
     }
     return {
       authBlocked,
       data: [],
-      failed: !(authBlocked || rateLimited),
       rateLimited,
     };
   }
 
-  const data = (await res.json()) as unknown;
-  if (!Array.isArray(data)) {
-    return {
-      authBlocked: false,
-      data: [],
-      failed: true,
-      rateLimited: false,
-    };
-  }
-  const parsed = data.flatMap((entry, idx) => {
-    if (
-      !entry ||
-      typeof entry !== "object" ||
-      !("starred_at" in entry) ||
-      typeof entry.starred_at !== "string"
-    ) {
-      return [];
-    }
-    return [
-      {
-        date: entry.starred_at,
-        stars: (page - 1) * 100 + idx + 1,
-      },
-    ];
-  });
+  const data = await res.json();
   return {
     authBlocked: false,
-    data: parsed,
-    failed: parsed.length !== data.length,
+    data: data.map(
+      (s: { starred_at: string }, idx: number) =>
+        ({
+          date: s.starred_at,
+          stars: (page - 1) * 100 + idx + 1,
+        }) as StarDataPoint
+    ),
     rateLimited: false,
   };
 }
@@ -174,13 +142,6 @@ export async function getRepoInfo(
     throw new Error(`Repo not found: ${owner}/${repo}`);
   }
   const data = await res.json();
-  if (
-    !data ||
-    typeof data !== "object" ||
-    typeof data.stargazers_count !== "number"
-  ) {
-    throw new Error(`Invalid GitHub repository response: ${owner}/${repo}`);
-  }
   return {
     owner,
     repo,
@@ -205,16 +166,10 @@ export async function getStarHistoryResult(
 ): Promise<StarHistoryResult> {
   const resolvedInfo = info ?? (await getRepoInfo(owner, repo));
   const totalStars = resolvedInfo.stars;
-  let currentStars = totalStars;
-  let currentStarsRefreshed = false;
-  let completeStargazerList = false;
   let estimated = false;
-  let source: StarHistorySource = "stargazers";
   const result = (history: StarDataPoint[]): StarHistoryResult => ({
-    currentStars,
     estimated,
     history,
-    source,
   });
 
   if (totalStars === 0) {
@@ -226,8 +181,7 @@ export async function getStarHistoryResult(
   const totalPages = Math.ceil(totalStars / 100);
   const fetchablePages = Math.min(totalPages, MAX_GITHUB_PAGES);
 
-  // Keep network work bounded for very large repositories while always
-  // retaining the first and final fetchable pages as real history anchors.
+  // Adjust sample count — keep it fast enough for Vercel's timeout
   const maxSample = IS_AUTHENTICATED ? 40 : 20;
 
   let pagesToFetch: number[];
@@ -235,8 +189,8 @@ export async function getStarHistoryResult(
   if (fetchablePages <= maxSample) {
     pagesToFetch = Array.from({ length: fetchablePages }, (_, i) => i + 1);
   } else {
-    pagesToFetch = Array.from({ length: maxSample }, (_, index) =>
-      Math.round(1 + (index * (fetchablePages - 1)) / (maxSample - 1))
+    pagesToFetch = Array.from({ length: maxSample }, (_, i) =>
+      Math.max(1, Math.round(((i + 1) / maxSample) * fetchablePages))
     );
     pagesToFetch = [...new Set(pagesToFetch)];
   }
@@ -257,11 +211,12 @@ export async function getStarHistoryResult(
   let rateLimited = Boolean(probe?.rateLimited);
 
   const accessRestricted =
-    !IS_AUTHENTICATED || probe?.authBlocked || probe?.failed;
+    !IS_AUTHENTICATED ||
+    probe?.authBlocked ||
+    (probe !== null && probe.data.length === 0 && !probe.rateLimited);
 
   if (accessRestricted) {
     estimated = true;
-    source = "public-snapshots";
     const [canonicalOwner = owner, canonicalRepo = repo] =
       resolvedInfo.fullName.split("/");
     results = await fetchPublicStarHistory({
@@ -269,6 +224,7 @@ export async function getStarHistoryResult(
       owner: canonicalOwner,
       repoId: resolvedInfo.id,
       repo: canonicalRepo,
+      requestedName: `${owner}/${repo}`,
       totalStars,
     });
   } else {
@@ -285,30 +241,6 @@ export async function getStarHistoryResult(
       }
       results.push(...r.data);
     }
-    const hasMissingProbe = Boolean(
-      probe && (probe.authBlocked || probe.failed || probe.rateLimited)
-    );
-    const hasMissingPages =
-      hasMissingProbe ||
-      responses.some(
-        (response) =>
-          response.authBlocked || response.failed || response.rateLimited
-      );
-    completeStargazerList =
-      pagesToFetch.length === totalPages && !hasMissingPages;
-    if (!completeStargazerList) {
-      estimated = true;
-    }
-
-    // Page collection can take long enough for the aggregate count fetched by
-    // getRepoData to become stale. Refresh it after the list so we never draw
-    // an older metadata total as a newer, fictional decline.
-    try {
-      currentStars = (await getRepoInfo(owner, repo)).stars;
-      currentStarsRefreshed = true;
-    } catch {
-      currentStars = totalStars;
-    }
   }
 
   if (results.length === 0 && rateLimited) {
@@ -317,48 +249,11 @@ export async function getStarHistoryResult(
     );
   }
 
-  // When every requested page succeeded, the list length is a stronger
-  // observation than stale metadata if the final metadata refresh failed.
-  // Successful empty trailing pages are valid after an unstar crosses a
-  // pagination boundary (101 → 100), and page one can validly become empty
-  // after the last star is removed (1 → 0).
-  if (
-    source === "stargazers" &&
-    !currentStarsRefreshed &&
-    completeStargazerList
-  ) {
-    if (results.length !== currentStars) {
-      estimated = true;
-    }
-    currentStars = results.length;
-  }
-
-  // A successful empty list that still contradicts a refreshed positive
-  // aggregate is not usable as history. Fall back to independent public
-  // observations instead of claiming the repository has zero stars.
-  if (source === "stargazers" && results.length === 0 && currentStars > 0) {
-    estimated = true;
-    source = "public-snapshots";
-    const [canonicalOwner = owner, canonicalRepo = repo] =
-      resolvedInfo.fullName.split("/");
-    results = await fetchPublicStarHistory({
-      createdAt: resolvedInfo.createdAt,
-      owner: canonicalOwner,
-      repoId: resolvedInfo.id,
-      repo: canonicalRepo,
-      totalStars: currentStars,
-    });
-  }
-
-  // Deduplicate observations that share an exact timestamp, then order them by
-  // time. Do not force monotonicity: aggregate snapshots can record real
-  // unstars, and flattening those declines would manufacture history.
+  // Sort and deduplicate: keep highest star count per date
+  const sorted = results.sort((a, b) => a.stars - b.stars);
   const byDate = new Map<string, StarDataPoint>();
-  for (const point of results) {
-    const existing = byDate.get(point.date);
-    if (!existing || point.stars >= existing.stars) {
-      byDate.set(point.date, point);
-    }
+  for (const point of sorted) {
+    byDate.set(point.date, point);
   }
   const dedupedAnchors = Array.from(byDate.values()).sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -368,53 +263,140 @@ export async function getStarHistoryResult(
     return result([]);
   }
 
+  const dayMs = 86_400_000;
   const firstAnchor = dedupedAnchors[0];
+  const firstAnchorMs = new Date(firstAnchor.date).getTime();
   const anchors: StarDataPoint[] =
     firstAnchor.stars === 0
       ? dedupedAnchors
       : [
           {
-            date: resolvedInfo.createdAt,
+            date: toIsoDate(Math.max(0, firstAnchorMs - dayMs)),
             stars: 0,
           },
           ...dedupedAnchors,
         ];
 
-  const today = new Date().toISOString().slice(0, 10);
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const today = toIsoDate(todayMs);
   const finalAnchor = anchors.at(-1);
+
   if (
-    source === "stargazers" &&
-    !currentStarsRefreshed &&
-    finalAnchor &&
-    !completeStargazerList &&
-    finalAnchor.stars > currentStars
+    finalAnchor?.stars === totalStars &&
+    anchors.length <= RAW_HISTORY_MAX_POINTS
   ) {
-    currentStars = finalAnchor.stars;
-    estimated = true;
-  }
-  if (
-    source === "stargazers" &&
-    finalAnchor &&
-    finalAnchor.stars !== currentStars
-  ) {
-    estimated = estimated || finalAnchor.stars < currentStars;
+    return result(anchors);
   }
 
-  // A partial API window cannot establish the missing interval. Keep its real
-  // anchors, add only the exact current aggregate, and render it as sparse.
-  if (!finalAnchor?.date.startsWith(today)) {
-    anchors.push({ date: today, stars: currentStars });
-  } else if (finalAnchor.stars !== currentStars) {
-    // Preserve the earlier same-day observation and append the exact current
-    // aggregate after it. This also captures a real same-day decline.
-    anchors.push({ date: new Date().toISOString(), stars: currentStars });
+  if (anchors.length === 2 && anchors[1]?.stars === totalStars) {
+    const singleDayHistory = [...anchors];
+    if (singleDayHistory.at(-1)?.date !== today) {
+      singleDayHistory.push({ date: today, stars: totalStars });
+    }
+    return result(singleDayHistory);
   }
 
-  return result(
-    anchors.toSorted(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    )
-  );
+  // Compute date range
+  const startMs = new Date(anchors[0].date).getTime();
+  const endAnchor = anchors.at(-1);
+  if (!endAnchor) {
+    return result(anchors);
+  }
+  const endMs = new Date(endAnchor.date).getTime();
+  const rangeMs = endMs - startMs;
+
+  // Pick bin size based on range
+  let binMs: number;
+  const rangeDays = rangeMs / dayMs;
+  if (rangeDays <= 90) {
+    binMs = dayMs;
+  } else if (rangeDays <= 365) {
+    binMs = dayMs * 7;
+  } else if (rangeDays <= 365 * 3) {
+    binMs = dayMs * 14;
+  } else {
+    binMs = dayMs * 30;
+  }
+
+  // Sample as a staircase so growth stays truthful and visually punchy.
+  const interpolated: StarDataPoint[] = [];
+  let anchorIndex = 0;
+  for (let ms = startMs; ms <= endMs; ms += binMs) {
+    while (
+      anchorIndex + 1 < anchors.length &&
+      new Date(anchors[anchorIndex + 1].date).getTime() <= ms
+    ) {
+      anchorIndex += 1;
+    }
+
+    interpolated.push({
+      date: toIsoDate(ms),
+      stars: anchors[anchorIndex].stars,
+    });
+  }
+
+  // Always include the last anchor
+  const lastAnchor = anchors.at(-1);
+  if (lastAnchor && interpolated.at(-1)?.date !== lastAnchor.date) {
+    interpolated.push(lastAnchor);
+  }
+
+  // Keep the real data shape, then interpolate from the last known point to
+  // today's actual star count when the upstream API only returned a prefix.
+  if (interpolated.length > 0) {
+    const lastPoint = interpolated.at(-1);
+    if (!lastPoint) {
+      return result(interpolated);
+    }
+    const lastMs = new Date(lastPoint.date).getTime();
+
+    if (lastPoint.stars < totalStars && lastPoint.date !== today) {
+      // Add synthetic points from last real data to today.
+      // Use smoothstep curve (S-shape) + monotonic growth to avoid flat or too-straight tails.
+      const gapMs = todayMs - lastMs;
+      const gapDays = gapMs / dayMs;
+      const starGap = totalStars - lastPoint.stars;
+
+      // Keep enough points so the tail has visible curvature.
+      const steps = Math.max(12, Math.min(52, Math.floor(gapDays / 7)));
+      let prev = lastPoint.stars;
+
+      for (let i = 1; i <= steps; i++) {
+        const t = i / (steps + 1); // 0..1 (excluding endpoints)
+        // Smoothstep: 3t^2 - 2t^3 (gentle curve, no harsh plateau)
+        const eased = t * t * (3 - 2 * t);
+        const raw = lastPoint.stars + eased * starGap;
+
+        const ms = lastMs + t * gapMs;
+        const minRemainingStep = Math.max(
+          1,
+          Math.floor((totalStars - prev) / (steps - i + 2))
+        );
+        const next = Math.min(
+          totalStars - 1,
+          Math.max(Math.floor(raw), prev + minRemainingStep)
+        );
+        prev = next;
+
+        const date = toIsoDate(ms);
+        interpolated.push({ date, stars: next });
+      }
+
+      // Final point at today with actual star count
+      interpolated.push({ date: today, stars: totalStars });
+    }
+  }
+
+  const finalPoint = interpolated.at(-1);
+  if (
+    finalPoint &&
+    finalPoint.date !== today &&
+    finalPoint.stars === totalStars
+  ) {
+    interpolated.push({ date: today, stars: totalStars });
+  }
+
+  return result(interpolated);
 }
 
 export async function getStarHistory(

@@ -201,23 +201,17 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
           width="100%"
         >
           <g transform={`translate(${margin.left},${margin.top})`}>
-            {lines.map((line, index) => {
-              const y = tooltipData?.yPositions[line.dataKey];
-              if (typeof y !== "number") {
-                return null;
-              }
-              return (
-                <TooltipDot
-                  color={resolveDotColor(line, index)}
-                  key={line.dataKey}
-                  springConfig={springConfig}
-                  strokeColor={chartCssVars.background}
-                  visible={visible}
-                  x={tooltipData?.xPositions?.[line.dataKey] ?? x}
-                  y={y}
-                />
-              );
-            })}
+            {lines.map((line, index) => (
+              <TooltipDot
+                color={resolveDotColor(line, index)}
+                key={line.dataKey}
+                springConfig={springConfig}
+                strokeColor={chartCssVars.background}
+                visible={visible}
+                x={tooltipData?.xPositions?.[line.dataKey] ?? x}
+                y={tooltipData?.yPositions[line.dataKey] ?? 0}
+              />
+            ))}
           </g>
         </svg>
       )}
