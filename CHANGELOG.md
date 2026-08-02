@@ -8,6 +8,7 @@ All notable changes to RepoStars are listed here in plain language.
 - Used archived GitHub aggregate counts when a new repository is too young to appear in the primary historical dataset.
 - Added a guarded recent-activity tail when archived counts are unavailable, without inflating those recent events into the repository's full lifetime.
 - Kept the current GitHub star total exact while clearly labeling reconstructed launch curves as estimated.
+- Smoothed estimated single-repository hover timelines between source anchors so tooltips move in small increments instead of jumping hundreds of stars.
 - Refreshed browser and CDN cache keys so improved curves replace old straight-line estimates immediately.
 
 ## 2026-07-23
