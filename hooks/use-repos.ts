@@ -18,7 +18,7 @@ interface UseReposOptions {
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const CLIENT_CACHE_VERSION = "v5";
+const CLIENT_CACHE_VERSION = "v7";
 
 function cacheKey(fullName: string) {
   return `repostars:repo:${CLIENT_CACHE_VERSION}:${fullName.toLowerCase()}`;

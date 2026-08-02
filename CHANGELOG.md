@@ -2,6 +2,14 @@
 
 All notable changes to RepoStars are listed here in plain language.
 
+## 2026-08-02
+
+### Better launch curves for new repositories
+- Used archived GitHub aggregate counts when a new repository is too young to appear in the primary historical dataset.
+- Added a guarded recent-activity tail when archived counts are unavailable, without inflating those recent events into the repository's full lifetime.
+- Kept the current GitHub star total exact while clearly labeling reconstructed launch curves as estimated.
+- Refreshed browser and CDN cache keys so improved curves replace old straight-line estimates immediately.
+
 ## 2026-07-23
 
 ### More realistic estimated charts

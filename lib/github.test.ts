@@ -357,7 +357,7 @@ describe("getStarHistory", () => {
     ]);
     expect(
       fetchMock.mock.calls.some(([input]) =>
-        input.toString().includes("api.github.com")
+        input.toString().startsWith("https://api.github.com")
       )
     ).toBe(false);
     expect(warnSpy).toHaveBeenCalled();
@@ -417,6 +417,306 @@ describe("getStarHistory", () => {
     expect(result.history.at(-1)).toEqual({ date: TODAY, stars: 21 });
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+
+  it.each([
+    {
+      bucket: "toDate(created_at)",
+      name: "for young repositories",
+      now: "2026-08-02T21:00:00Z",
+      today: "2026-08-02",
+    },
+    {
+      bucket: "toMonday(created_at)",
+      name: "after daily event bucketing expires",
+      now: "2026-10-16T21:00:00Z",
+      today: "2026-10-16",
+    },
+  ])("uses archived aggregate snapshots $name", async ({
+    bucket,
+    now,
+    today,
+  }) => {
+    vi.setSystemTime(new Date(now));
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    const recentEvents = (date: string, count: number) =>
+      Array.from({ length: count }, () => ({
+        created_at: `${date}T12:00:00Z`,
+        type: "WatchEvent",
+      }));
+
+    const fetchMock = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (
+          url.includes("api.github.com/repos/DavidHDev/canvas-ui/stargazers")
+        ) {
+          return jsonResponse({ message: "Not Found" }, { status: 404 });
+        }
+
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          if (body.includes("github_repos_history")) {
+            return jsonResponse({ data: [] });
+          }
+          if (body.includes("github_events")) {
+            return jsonResponse({
+              data: [
+                { date: "2026-07-24", new_stars: 2 },
+                { date: "2026-07-25", new_stars: 1 },
+                { date: "2026-07-29", new_stars: 2 },
+                { date: "2026-07-30", new_stars: 2 },
+                { date: "2026-08-02", new_stars: 2 },
+              ],
+            });
+          }
+        }
+
+        if (url.includes("web.archive.org/cdx/search/cdx")) {
+          return jsonResponse([
+            ["timestamp", "original", "digest"],
+            [
+              "20260723133535",
+              "https://api.github.com/repos/DavidHDev/canvas-ui",
+              "capture-one",
+            ],
+            [
+              "20260724192403",
+              "https://api.github.com/repos/DavidHDev/canvas-ui",
+              "capture-two",
+            ],
+            [
+              "20260731171457",
+              "https://api.github.com/repos/DavidHDev/canvas-ui",
+              "capture-three",
+            ],
+          ]);
+        }
+
+        if (url.includes("web.archive.org/web/20260723133535id_")) {
+          return jsonResponse({
+            created_at: "2026-07-16T13:38:20Z",
+            full_name: "DavidHDev/canvas-ui",
+            id: 1_302_826_522,
+            stargazers_count: 265,
+          });
+        }
+        if (url.includes("web.archive.org/web/20260724192403id_")) {
+          return jsonResponse({
+            created_at: "2026-07-16T13:38:20Z",
+            full_name: "DavidHDev/canvas-ui",
+            id: 1_302_826_522,
+            stargazers_count: 1573,
+          });
+        }
+        if (url.includes("web.archive.org/web/20260731171457id_")) {
+          return jsonResponse({
+            created_at: "2026-07-16T13:38:20Z",
+            full_name: "DavidHDev/canvas-ui",
+            id: 1_302_826_522,
+            stargazers_count: 2803,
+          });
+        }
+
+        if (url.includes("api.github.com/repos/DavidHDev/canvas-ui/events")) {
+          const page = Number(new URL(url).searchParams.get("page"));
+          if (page === 1) {
+            return jsonResponse(recentEvents("2026-08-02", 90));
+          }
+          if (page === 2) {
+            return jsonResponse(recentEvents("2026-08-01", 70));
+          }
+          return jsonResponse(recentEvents("2026-07-31", 50));
+        }
+
+        if (url.includes("api.ossinsight.io")) {
+          return jsonResponse({ data: { rows: [] } });
+        }
+
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("DavidHDev", "canvas-ui", {
+      createdAt: "2026-07-16T13:38:20Z",
+      description: "Canvas UI",
+      fullName: "DavidHDev/canvas-ui",
+      id: 1_302_826_522,
+      language: "TypeScript",
+      owner: "DavidHDev",
+      repo: "canvas-ui",
+      stars: 3082,
+    });
+
+    expect(result.estimated).toBe(true);
+    expect(result.history).toEqual([
+      { date: "2026-07-16", stars: 0 },
+      { date: "2026-07-23", stars: 265 },
+      { date: "2026-07-24", stars: 1573 },
+      { date: "2026-07-31", stars: 2803 },
+      { date: today, stars: 3082 },
+    ]);
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        input
+          .toString()
+          .includes("api.github.com/repos/DavidHDev/canvas-ui/events")
+      )
+    ).toBe(false);
+    const eventQuery = fetchMock.mock.calls.find(([, init]) =>
+      String(init?.body ?? "").includes("github_events")
+    );
+    expect(String(eventQuery?.[1]?.body)).toContain(bucket);
+  });
+
+  it("preserves the magnitude of a capped recent-event tail", async () => {
+    vi.setSystemTime(new Date("2026-08-02T21:00:00Z"));
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    const recentEvents = (date: string, count: number) =>
+      Array.from({ length: count }, () => ({
+        created_at: `${date}T12:00:00Z`,
+        type: "WatchEvent",
+      }));
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("api.github.com/repos/acme/launch/stargazers")) {
+          return jsonResponse({ message: "Not Found" }, { status: 404 });
+        }
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          if (body.includes("github_repos_history")) {
+            return jsonResponse({ data: [] });
+          }
+          return jsonResponse({
+            data: [
+              { date: "2026-07-24", new_stars: 2 },
+              { date: "2026-07-25", new_stars: 1 },
+              { date: "2026-07-29", new_stars: 2 },
+              { date: "2026-07-30", new_stars: 2 },
+            ],
+          });
+        }
+        if (url.includes("web.archive.org/cdx/search/cdx")) {
+          return jsonResponse([["timestamp", "original", "digest"]]);
+        }
+        if (url.includes("api.github.com/repos/acme/launch/events")) {
+          const page = Number(new URL(url).searchParams.get("page"));
+          if (page === 1) {
+            return jsonResponse(recentEvents("2026-08-02", 90));
+          }
+          if (page === 2) {
+            return jsonResponse(recentEvents("2026-08-01", 70));
+          }
+          return jsonResponse(recentEvents("2026-07-31", 50));
+        }
+        if (url.includes("api.ossinsight.io")) {
+          return jsonResponse({ data: { rows: [] } });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      })
+    );
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "launch", {
+      createdAt: "2026-07-16T13:38:20Z",
+      description: "Launch",
+      fullName: "acme/launch",
+      id: 10,
+      language: "TypeScript",
+      owner: "acme",
+      repo: "launch",
+      stars: 3082,
+    });
+
+    expect(result.history).toContainEqual({ date: "2026-07-30", stars: 2872 });
+    expect(result.history).toContainEqual({ date: "2026-07-31", stars: 2922 });
+    expect(result.history).toContainEqual({ date: "2026-08-01", stars: 2992 });
+    expect(result.history.at(-1)).toEqual({
+      date: "2026-08-02",
+      stars: 3082,
+    });
+  });
+
+  it("rejects partial recent-event pagination", async () => {
+    vi.setSystemTime(new Date("2026-08-02T21:00:00Z"));
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    const recentEvents = (date: string, count: number) =>
+      Array.from({ length: count }, () => ({
+        created_at: `${date}T12:00:00Z`,
+        type: "WatchEvent",
+      }));
+
+    const fetchMock = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("api.github.com/repos/acme/launch/stargazers")) {
+          return jsonResponse({ message: "Not Found" }, { status: 404 });
+        }
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          return jsonResponse({
+            data: body.includes("github_repos_history")
+              ? []
+              : [{ date: "2026-07-30", new_stars: 2 }],
+          });
+        }
+        if (url.includes("web.archive.org/cdx/search/cdx")) {
+          return jsonResponse([["timestamp", "original", "digest"]]);
+        }
+        if (url.includes("api.github.com/repos/acme/launch/events")) {
+          const page = Number(new URL(url).searchParams.get("page"));
+          if (page === 2) {
+            return jsonResponse(
+              { message: "API rate limit exceeded" },
+              { status: 429 }
+            );
+          }
+          return jsonResponse([
+            ...recentEvents("2026-07-31", 30),
+            ...recentEvents("2026-08-01", 30),
+            ...recentEvents("2026-08-02", 30),
+          ]);
+        }
+        if (url.includes("api.ossinsight.io")) {
+          return jsonResponse({ data: { rows: [] } });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "launch", {
+      createdAt: "2026-07-16T13:38:20Z",
+      description: "Launch",
+      fullName: "acme/launch",
+      id: 10,
+      language: "TypeScript",
+      owner: "acme",
+      repo: "launch",
+      stars: 3082,
+    });
+
+    expect(result.history).toEqual([
+      { date: "2026-07-16", stars: 0 },
+      { date: "2026-08-02", stars: 3082 },
+    ]);
+    expect(
+      fetchMock.mock.calls.filter(([input]) =>
+        input.toString().includes("api.github.com/repos/acme/launch/events")
+      )
+    ).toHaveLength(3);
   });
 
   it("repairs sparse snapshot head and stale tail with real star events", async () => {
