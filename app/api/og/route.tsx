@@ -4,97 +4,7 @@ import { getRepoInfo } from "@/lib/github";
 import { defaultTheme, themes } from "@/lib/themes";
 
 function formatStars(n: number) {
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`;
-  }
-  if (n >= 1000) {
-    return `${(n / 1000).toFixed(1)}k`;
-  }
-  return `${n}`;
-}
-
-function hashSeed(input: string) {
-  let h = 0;
-  for (let i = 0; i < input.length; i++) {
-    h = (h * 31 + input.charCodeAt(i)) % 1_000_000_007;
-  }
-  return Math.abs(h);
-}
-
-function makeSeries(
-  stars: number,
-  seed: number,
-  points = 24,
-  curvePower = 1.7,
-  noiseAmp = 0.04
-) {
-  const out: number[] = [];
-  const max = Math.max(1, stars);
-  const base = max * 0.02;
-
-  for (let i = 0; i < points; i++) {
-    const t = i / (points - 1);
-    const growth = t ** curvePower;
-    const noise = Math.sin(seed * 0.001 + i * 1.137) * 0.5 * noiseAmp;
-    const v = Math.max(
-      0,
-      Math.round((base + (max - base) * growth) * (1 + noise))
-    );
-    out.push(v);
-  }
-  out[points - 1] = max;
-
-  // enforce monotonic increase for chart sanity
-  for (let i = 1; i < out.length; i++) {
-    if (out[i] < out[i - 1]) {
-      out[i] = out[i - 1];
-    }
-  }
-  return out;
-}
-
-function toPolyline(
-  values: number[],
-  width: number,
-  height: number,
-  maxY: number
-) {
-  if (!values.length) {
-    return "";
-  }
-  const denom = Math.max(1, values.length - 1);
-  return values
-    .map((v, i) => {
-      const x = (i / denom) * width;
-      const y = height - (v / Math.max(1, maxY)) * height;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
-}
-
-function toAreaPoints(
-  values: number[],
-  width: number,
-  height: number,
-  maxY: number
-) {
-  const line = toPolyline(values, width, height, maxY);
-  return line ? `${line} ${width},${height} 0,${height}` : "";
-}
-
-function toPoint(
-  value: number,
-  index: number,
-  length: number,
-  width: number,
-  height: number,
-  maxY: number
-) {
-  const denom = Math.max(1, length - 1);
-  return {
-    x: (index / denom) * width,
-    y: height - (value / Math.max(1, maxY)) * height,
-  };
+  return n.toLocaleString("en-US");
 }
 
 async function withTimeout<T>(
@@ -137,42 +47,16 @@ export async function GET(req: NextRequest) {
       .map((r) => ({
         fullName: r.fullName,
         stars: r.stars,
-        seed: hashSeed(r.fullName),
       })) || []
   ).slice(0, 3);
 
-  const displayRows = rows.length
-    ? rows
-    : [
-        {
-          fullName: "shadcn-ui/ui",
-          stars: 116_000,
-          seed: hashSeed("shadcn-ui/ui"),
-        },
-        { fullName: "47ng/nuqs", stars: 4900, seed: hashSeed("47ng/nuqs") },
-        {
-          fullName: "tailwindlabs/tailwindcss",
-          stars: 89_000,
-          seed: hashSeed("tailwindlabs/tailwindcss"),
-        },
-      ];
-
-  const chartW = 1020;
-  const chartH = 250;
-
-  const curveByTheme: Record<string, { power: number; noise: number }> = {
-    terminal: { power: 2.2, noise: 0.025 },
-    neon: { power: 1.55, noise: 0.05 },
-    synthwave: { power: 1.45, noise: 0.055 },
-    minimal: { power: 1.85, noise: 0.02 },
-  };
-  const curve = curveByTheme[themeId] ?? { power: 1.7, noise: 0.04 };
-
-  const withSeries = displayRows.map((r) => ({
-    ...r,
-    series: makeSeries(r.stars, r.seed, 24, curve.power, curve.noise),
-  }));
-  const yMax = Math.max(1, ...withSeries.flatMap((r) => r.series));
+  const largestStarTotal = Math.max(1, ...rows.map((repo) => repo.stars));
+  const comparisonLabel =
+    rows.length > 0
+      ? `Current GitHub star totals: ${rows
+          .map((repo) => `${repo.fullName}, ${repo.stars} stars`)
+          .join("; ")}`
+      : "Current GitHub star totals are unavailable";
 
   return new ImageResponse(
     <div
@@ -224,195 +108,136 @@ export async function GET(req: NextRequest) {
       </div>
 
       <div style={{ zIndex: 1, marginTop: 16, fontSize: 30, opacity: 0.88 }}>
-        Star history preview for selected repositories
+        Current GitHub stars for selected repositories
       </div>
 
       <div
+        aria-label={comparisonLabel}
+        role="img"
         style={{
           zIndex: 1,
-          marginTop: 36,
+          marginTop: 30,
           border: `1px solid ${theme.gridColor}`,
           borderRadius: 16,
-          padding: 18,
+          padding: 24,
           background: "rgba(255,255,255,0.04)",
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          gap: 18,
         }}
       >
-        <svg
-          aria-label="Star history preview chart"
-          height={300}
-          role="img"
-          viewBox="0 0 1080 300"
-          width={1080}
-        >
-          <defs>
-            {withSeries.map((repo, i) => (
-              <linearGradient
-                id={`og-area-${i}`}
-                key={`${repo.fullName}-gradient`}
-                x1="0"
-                x2="0"
-                y1="0"
-                y2="1"
-              >
-                <stop
-                  offset="0%"
-                  stopColor={theme.lineColors[i % theme.lineColors.length]}
-                  stopOpacity="0.34"
-                />
-                <stop
-                  offset="100%"
-                  stopColor={theme.lineColors[i % theme.lineColors.length]}
-                  stopOpacity="0"
-                />
-              </linearGradient>
-            ))}
-          </defs>
-          <g transform="translate(50,18)">
-            <line
-              opacity="0.72"
-              stroke={theme.axisColor}
-              strokeWidth="1"
-              x1="0"
-              x2={chartW}
-              y1={chartH}
-              y2={chartH}
-            />
-            <line
-              opacity="0.72"
-              stroke={theme.gridColor}
-              strokeDasharray="4 4"
-              strokeWidth="1"
-              x1="0"
-              x2={chartW}
-              y1={Math.round(chartH / 2)}
-              y2={Math.round(chartH / 2)}
-            />
-            <line
-              opacity="0.72"
-              stroke={theme.gridColor}
-              strokeDasharray="4 4"
-              strokeWidth="1"
-              x1="0"
-              x2={chartW}
-              y1="0"
-              y2="0"
-            />
-
-            {withSeries.map((repo, i) => (
-              <polygon
-                fill={`url(#og-area-${i})`}
-                key={`${repo.fullName}-area`}
-                points={toAreaPoints(repo.series, chartW, chartH, yMax)}
-              />
-            ))}
-
-            {withSeries.map((repo, i) => (
-              <polyline
-                fill="none"
-                key={`${repo.fullName}-line`}
-                points={toPolyline(repo.series, chartW, chartH, yMax)}
-                stroke={theme.lineColors[i % theme.lineColors.length]}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="4"
-              />
-            ))}
-
-            {withSeries.map((repo, i) => {
-              const first = toPoint(
-                repo.series[0] ?? 0,
-                0,
-                repo.series.length,
-                chartW,
-                chartH,
-                yMax
-              );
-              const last = toPoint(
-                repo.series.at(-1) ?? 0,
-                repo.series.length - 1,
-                repo.series.length,
-                chartW,
-                chartH,
-                yMax
-              );
-              return (
-                <g key={`${repo.fullName}-markers`}>
-                  <circle
-                    cx={first.x}
-                    cy={first.y}
-                    fill={theme.background}
-                    r="4"
-                    stroke={theme.lineColors[i % theme.lineColors.length]}
-                    strokeWidth="2"
-                  />
-                  <circle
-                    cx={last.x}
-                    cy={last.y}
-                    fill={theme.lineColors[i % theme.lineColors.length]}
-                    r="6"
-                    stroke={theme.background}
-                    strokeWidth="2"
-                  />
-                </g>
-              );
-            })}
-          </g>
-        </svg>
-
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            color: theme.textColor,
-            fontSize: 14,
-            paddingLeft: 52,
-            paddingRight: 12,
+            gap: 24,
           }}
         >
-          <span>Start</span>
-          <span>Middle</span>
-          <span>Now</span>
+          <span style={{ color: "#fff", fontSize: 23, fontWeight: 700 }}>
+            Current star totals
+          </span>
+          <span style={{ color: theme.textColor, fontSize: 15, opacity: 0.82 }}>
+            Bar length is relative to the largest selection
+          </span>
         </div>
 
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          {withSeries.map((repo, i) => (
-            <div
-              key={repo.fullName}
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
-            >
+        {rows.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {rows.map((repo, i) => (
               <div
+                key={repo.fullName}
                 style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: 999,
-                  background: theme.lineColors[i % theme.lineColors.length],
-                }}
-              />
-              <div
-                style={{
+                  background: "rgba(255,255,255,0.035)",
+                  border: `1px solid ${theme.gridColor}`,
+                  borderRadius: 12,
                   display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  color: "#fff",
-                  fontSize: 20,
+                  flexDirection: "column",
+                  gap: 10,
+                  padding: "14px 16px",
                 }}
               >
-                <span>{repo.fullName}</span>
-                <span
+                <div
                   style={{
-                    color: theme.lineColors[i % theme.lineColors.length],
+                    alignItems: "center",
+                    display: "flex",
+                    justifyContent: "space-between",
                   }}
                 >
-                  ({formatStars(repo.stars)})
-                </span>
+                  <div
+                    style={{
+                      alignItems: "center",
+                      color: "#fff",
+                      display: "flex",
+                      fontSize: 21,
+                      gap: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background:
+                          theme.lineColors[i % theme.lineColors.length],
+                        borderRadius: 999,
+                        height: 11,
+                        width: 11,
+                      }}
+                    />
+                    <span>{repo.fullName}</span>
+                  </div>
+                  <span
+                    style={{
+                      color: theme.lineColors[i % theme.lineColors.length],
+                      fontSize: 23,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {formatStars(repo.stars)} stars
+                  </span>
+                </div>
+                <div
+                  aria-hidden="true"
+                  style={{
+                    background: `${theme.gridColor}55`,
+                    borderRadius: 999,
+                    display: "flex",
+                    height: 13,
+                    overflow: "hidden",
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    style={{
+                      background: theme.lineColors[i % theme.lineColors.length],
+                      borderRadius: 999,
+                      height: "100%",
+                      width: `${(repo.stars / largestStarTotal) * 100}%`,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            style={{
+              alignItems: "center",
+              color: theme.textColor,
+              display: "flex",
+              flexDirection: "column",
+              fontSize: 22,
+              gap: 8,
+              justifyContent: "center",
+              minHeight: 220,
+            }}
+          >
+            <span style={{ color: "#fff", fontWeight: 700 }}>
+              Repository totals unavailable
+            </span>
+            <span style={{ fontSize: 17, opacity: 0.78 }}>
+              Open RepoStars to refresh this comparison.
+            </span>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: "auto" }} />

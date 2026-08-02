@@ -74,6 +74,8 @@ export interface AreaProps {
   loadingStrokeOpacity?: number;
   /** Marker styling (same options as Scatter). */
   markers?: SeriesPointMarkerStyle;
+  /** Bypass shared path decimation so sparse source anchors stay visible. */
+  preserveDataPoints?: boolean;
   /** Whether to show highlight segment on hover. Default: true */
   showHighlight?: boolean;
   /** Whether to show the stroke line. Default: true */
@@ -82,6 +84,8 @@ export interface AreaProps {
   showMarkers?: boolean;
   /** Stroke color for the line. Default: same as fill */
   stroke?: string;
+  /** Dash pattern for the whole line, e.g. `"3 6"`. */
+  strokeDasharray?: string;
   /** Shape of line ends and joins. Default: round */
   strokeLinecap?: "butt" | "round" | "square";
   /** Stroke width. Default: 2 */
@@ -134,6 +138,7 @@ export function Area({
   fill = chartCssVars.linePrimary,
   fillOpacity = 0.4,
   stroke,
+  strokeDasharray,
   strokeWidth = 2,
   curve = curveMonotoneX,
   animate = true,
@@ -144,6 +149,7 @@ export function Area({
   fadeEdges = false,
   showMarkers = false,
   markers,
+  preserveDataPoints = false,
   dashFromIndex,
   dashArray = "6,4",
   strokeLinecap = "round",
@@ -188,16 +194,6 @@ export function Area({
     return index >= 0 ? index : 0;
   }, [lines, dataKey]);
 
-  const pathRef = useRef<SVGPathElement>(null);
-  const { pathLength, pathD } = usePathStrokeMetrics(pathRef, [
-    renderData,
-    innerWidth,
-    dashFromIndex,
-    showLine,
-    showSeriesContent,
-    showLoadingPulse,
-  ]);
-
   // Unique IDs for this area
   const uniqueId = useId();
   const gradientId = `area-gradient-${dataKey}-${uniqueId}`;
@@ -221,7 +217,28 @@ export function Area({
     [dataKey, yScale]
   );
 
-  const hasDashTail = resolveDashTailBounds(dashFromIndex, data.length);
+  const seriesData = useMemo(
+    () => data.filter((point) => typeof point[dataKey] === "number"),
+    [data, dataKey]
+  );
+  const seriesRenderData = useMemo(
+    () =>
+      preserveDataPoints
+        ? seriesData
+        : renderData.filter((point) => typeof point[dataKey] === "number"),
+    [dataKey, preserveDataPoints, renderData, seriesData]
+  );
+  const pathRef = useRef<SVGPathElement>(null);
+  const { pathLength, pathD } = usePathStrokeMetrics(pathRef, [
+    seriesRenderData,
+    innerWidth,
+    dashFromIndex,
+    showLine,
+    showSeriesContent,
+    showLoadingPulse,
+  ]);
+
+  const hasDashTail = resolveDashTailBounds(dashFromIndex, seriesData.length);
   // The stroke gradient is only emitted when at least one edge fades, so fall
   // back to the resolved solid color otherwise — avoids an invalid url(#...).
   const fadeSides = resolveFadeSides(fadeEdges);
@@ -244,7 +261,7 @@ export function Area({
       {showSeriesContent && showAreaFill ? (
         <AreaClosed
           curve={curve}
-          data={renderData}
+          data={seriesRenderData}
           fill={areaFill}
           x={(d) => xScale(xAccessor(d)) ?? 0}
           y={getY}
@@ -256,9 +273,10 @@ export function Area({
         <>
           <LinePath
             curve={curve}
-            data={renderData}
+            data={seriesRenderData}
             innerRef={pathRef}
             stroke={visibleStroke}
+            strokeDasharray={strokeDasharray}
             strokeLinecap={strokeLinecap}
             strokeWidth={strokeWidth}
             x={(d) => xScale(xAccessor(d)) ?? 0}
@@ -268,7 +286,7 @@ export function Area({
             <SeriesDashTailOverlay
               dashArray={dashArray}
               dashFromIndex={dashFromIndex}
-              data={data}
+              data={seriesData}
               innerHeight={innerHeight}
               innerWidth={innerWidth}
               pathD={pathD}

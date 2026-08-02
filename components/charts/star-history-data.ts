@@ -5,6 +5,14 @@ export interface RepoChartData {
   data: StarDataPoint[];
   estimated: boolean;
   name: string;
+  source?: "public-snapshots" | "stargazers";
+}
+
+export function isSnapshotHistory(repo: RepoChartData) {
+  return (
+    repo.source === "public-snapshots" ||
+    (repo.source === undefined && repo.estimated)
+  );
 }
 
 export interface StarHistoryRow extends Record<string, Date | number> {
@@ -41,6 +49,11 @@ export interface RangeStats {
   totalGain: number;
 }
 
+export interface RangeSeries {
+  color: string;
+  name: string;
+}
+
 export interface RingDatum {
   color: string;
   label: string;
@@ -48,10 +61,7 @@ export interface RingDatum {
   value: number;
 }
 
-const TIMELINE_POINT_COUNT = 200;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SINGLE_REPO_MAX_POINTS = 640;
-const SINGLE_REPO_MAX_STAR_STEP = 50;
 
 export function formatChartDate(value: Date | string | number) {
   const date = value instanceof Date ? value : new Date(value);
@@ -99,11 +109,7 @@ export function getRepoLegendItems(
   }));
 }
 
-export function interpolateStarsAt(
-  data: StarDataPoint[],
-  dateMs: number,
-  options: { step?: boolean } = {}
-): number {
+function getKnownStarsAt(data: StarDataPoint[], dateMs: number): number {
   if (data.length === 0) {
     return 0;
   }
@@ -135,129 +141,73 @@ export function interpolateStarsAt(
     }
   }
 
-  if (options.step) {
-    return data[low].stars;
-  }
-
-  const lowMs = new Date(data[low].date).getTime();
-  const highMs = new Date(data[high].date).getTime();
-  if (highMs === lowMs) {
-    return data[low].stars;
-  }
-
-  const progress = (dateMs - lowMs) / (highMs - lowMs);
-  return Math.round(
-    data[low].stars + progress * (data[high].stars - data[low].stars)
-  );
+  return data[low].stars;
 }
 
-/**
- * A single series otherwise exposes only its source anchors to chart hover,
- * even though the rendered line already connects the space between them.
- * Add bounded presentation-only samples so the tooltip follows that line in
- * small increments while retaining every original date and star total.
- */
-function densifySingleRepoHistory(repo: RepoChartData): StarHistoryRow[] {
-  const { data, name } = repo;
-  if (data.length < 2 || data.length >= SINGLE_REPO_MAX_POINTS) {
-    return data.map((point) => ({
-      date: new Date(point.date),
-      [name]: point.stars,
-    }));
+function mergeObservedHistories(repos: RepoChartData[]) {
+  const rowsByTime = new Map<number, StarHistoryRow>();
+  for (const repo of repos) {
+    for (const point of repo.data) {
+      const pointMs = new Date(point.date).getTime();
+      if (!Number.isFinite(pointMs)) {
+        continue;
+      }
+      const row = rowsByTime.get(pointMs) ?? { date: new Date(pointMs) };
+      row[repo.name] = point.stars;
+      rowsByTime.set(pointMs, row);
+    }
   }
 
-  let totalChange = 0;
-  for (let index = 1; index < data.length; index += 1) {
-    totalChange += Math.abs(data[index].stars - data[index - 1].stars);
-  }
-  const interpolationBudget = SINGLE_REPO_MAX_POINTS - data.length;
-  const maxStarStep = Math.max(
-    SINGLE_REPO_MAX_STAR_STEP,
-    Math.ceil(totalChange / interpolationBudget)
+  const rows = Array.from(rowsByTime.values()).sort(
+    (a, b) => a.date.getTime() - b.date.getTime()
   );
-
-  const rows: StarHistoryRow[] = [];
-  for (let index = 0; index < data.length - 1; index += 1) {
-    const start = data[index];
-    const end = data[index + 1];
-    const startMs = new Date(start.date).getTime();
-    const endMs = new Date(end.date).getTime();
-    if (
-      !(Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs)
-    ) {
-      return data.map((point) => ({
-        date: new Date(point.date),
-        [name]: point.stars,
-      }));
+  const exactRepos = repos.flatMap((repo) => {
+    const first = repo.data[0];
+    const last = repo.data.at(-1);
+    if (repo.estimated || !(first && last)) {
+      return [];
     }
-
-    const starChange = end.stars - start.stars;
-    const steps = Math.max(1, Math.ceil(Math.abs(starChange) / maxStarStep));
-    for (let step = 0; step < steps; step += 1) {
-      const progress = step / steps;
-      rows.push({
-        date: new Date(startMs + (endMs - startMs) * progress),
-        [name]: Math.round(start.stars + starChange * progress),
-      });
+    return [
+      {
+        firstMs: new Date(first.date).getTime(),
+        lastMs: new Date(last.date).getTime(),
+        repo,
+      },
+    ];
+  });
+  for (const row of rows) {
+    const rowMs = row.date.getTime();
+    for (const { firstMs, lastMs, repo } of exactRepos) {
+      if (
+        typeof row[repo.name] !== "number" &&
+        rowMs >= firstMs &&
+        rowMs <= lastMs
+      ) {
+        row[repo.name] = getKnownStarsAt(repo.data, rowMs);
+      }
     }
-  }
-
-  const lastPoint = data.at(-1);
-  if (lastPoint) {
-    rows.push({
-      date: new Date(lastPoint.date),
-      [name]: lastPoint.stars,
-    });
   }
   return rows;
 }
 
 export function mergeStarHistories(
   repos: RepoChartData[],
-  options: { pointCount?: number; step?: boolean } = {}
+  _options: { pointCount?: number; step?: boolean } = {}
 ): StarHistoryRow[] {
   const populatedRepos = repos.filter((repo) => repo.data.length > 0);
   if (populatedRepos.length === 0) {
     return [];
   }
 
-  if (populatedRepos.length === 1 && options.pointCount == null) {
-    const [repo] = populatedRepos;
-    return repo.estimated
-      ? densifySingleRepoHistory(repo)
-      : repo.data.map((point) => ({
-          date: new Date(point.date),
-          [repo.name]: point.stars,
-        }));
+  if (populatedRepos.length > 1) {
+    return mergeObservedHistories(populatedRepos);
   }
 
-  let globalMin = Number.POSITIVE_INFINITY;
-  let globalMax = Number.NEGATIVE_INFINITY;
-  for (const repo of populatedRepos) {
-    for (const point of repo.data) {
-      const pointMs = new Date(point.date).getTime();
-      globalMin = Math.min(globalMin, pointMs);
-      globalMax = Math.max(globalMax, pointMs);
-    }
-  }
-
-  if (!(Number.isFinite(globalMin) && Number.isFinite(globalMax))) {
-    return [];
-  }
-
-  const pointCount = options.pointCount ?? TIMELINE_POINT_COUNT;
-  const step = pointCount > 1 ? (globalMax - globalMin) / (pointCount - 1) : 0;
-
-  return Array.from({ length: pointCount }, (_, index) => {
-    const dateMs = globalMin + step * index;
-    const row: StarHistoryRow = { date: new Date(dateMs) };
-    for (const repo of populatedRepos) {
-      row[repo.name] = interpolateStarsAt(repo.data, dateMs, {
-        step: options.step,
-      });
-    }
-    return row;
-  });
+  const [repo] = populatedRepos;
+  return repo.data.map((point) => ({
+    date: new Date(point.date),
+    [repo.name]: point.stars,
+  }));
 }
 
 export function getGrowthStats(
@@ -265,27 +215,26 @@ export function getGrowthStats(
   theme: ChartTheme,
   days: number
 ): RepoGain[] {
-  return repos.map((repo, index) => {
+  return repos.flatMap((repo, index) => {
+    if (repo.estimated) {
+      return [];
+    }
     const latest = repo.data.at(-1);
     if (!latest) {
-      return {
-        color: theme.lineColors[index % theme.lineColors.length],
-        current: 0,
-        gain: 0,
-        name: repo.name,
-        previous: 0,
-      };
+      return [];
     }
 
     const latestMs = new Date(latest.date).getTime();
-    const previous = interpolateStarsAt(repo.data, latestMs - days * DAY_MS);
-    return {
-      color: theme.lineColors[index % theme.lineColors.length],
-      current: latest.stars,
-      gain: Math.max(0, latest.stars - previous),
-      name: repo.name,
-      previous,
-    };
+    const previous = getKnownStarsAt(repo.data, latestMs - days * DAY_MS);
+    return [
+      {
+        color: theme.lineColors[index % theme.lineColors.length],
+        current: latest.stars,
+        gain: Math.max(0, latest.stars - previous),
+        name: repo.name,
+        previous,
+      },
+    ];
   });
 }
 
@@ -306,8 +255,7 @@ export function getStarShareData(
 
 export function getRangeStats(
   rows: StarHistoryRow[],
-  repoNames: string[],
-  theme: ChartTheme,
+  series: RangeSeries[],
   startIndex: number,
   endIndex: number
 ): RangeStats | null {
@@ -322,11 +270,11 @@ export function getRangeStats(
     return null;
   }
 
-  const repoStats = repoNames.map((name, index) => {
+  const repoStats = series.map(({ color, name }) => {
     const start = Number(startRow[name] ?? 0);
     const end = Number(endRow[name] ?? 0);
     return {
-      color: theme.lineColors[index % theme.lineColors.length],
+      color,
       end,
       gain: end - start,
       name,

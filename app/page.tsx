@@ -26,7 +26,7 @@ export async function generateMetadata({
   const repoText =
     repoList.length > 0 ? repoList.join(" · ") : "GitHub repositories";
 
-  const ogVersion = "4";
+  const ogVersion = "5";
   const ogUrl =
     repoList.length > 0
       ? `/api/og?${params.toString()}&ogv=${ogVersion}`

@@ -21,24 +21,54 @@ function esc(text: string) {
     .replace(/'/g, "&#39;");
 }
 
-function buildSparkline(values: number[], width: number, height: number) {
-  if (values.length < 2) {
-    return { area: "", first: "", last: "", line: "" };
-  }
-  const min = 0;
-  const max = Math.max(...values);
-  const range = Math.max(1, max - min);
+interface TimelineObservation {
+  date: string;
+  dateMs: number;
+  stars: number;
+  x: string;
+  y: string;
+}
 
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * height;
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
+function buildTimeline(
+  history: Array<{ date: string; stars: number }>,
+  width: number,
+  height: number,
+  currentStars: number
+) {
+  const source = history
+    .flatMap((point) => {
+      const dateMs = new Date(point.date).getTime();
+      return Number.isFinite(dateMs) && Number.isFinite(point.stars)
+        ? [{ date: point.date, dateMs, stars: point.stars }]
+        : [];
+    })
+    .toSorted((a, b) => a.dateMs - b.dateMs);
+  const firstDateMs = source[0]?.dateMs ?? 0;
+  const lastDateMs = source.at(-1)?.dateMs ?? firstDateMs;
+  const dateRange = lastDateMs - firstDateMs;
+  const yMax = Math.max(1, currentStars, ...source.map((point) => point.stars));
+
+  const points: TimelineObservation[] = source.map((point) => {
+    const x =
+      dateRange > 0
+        ? ((point.dateMs - firstDateMs) / dateRange) * width
+        : width / 2;
+    const y = height - (point.stars / yMax) * height;
+    return {
+      ...point,
+      x: x.toFixed(2),
+      y: y.toFixed(2),
+    };
   });
-  const line = points.join(" ");
+  const line = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const area =
+    points.length >= 2 ? `${line} ${width},${height} 0,${height}` : "";
 
-  const area = `${line} ${width},${height} 0,${height}`;
+  return { area, line, points, yMax };
+}
 
-  return { area, first: points[0] ?? "", last: points.at(-1) ?? "", line };
+function formatDateLabel(dateMs: number | undefined) {
+  return dateMs == null ? "" : new Date(dateMs).toISOString().slice(0, 10);
 }
 
 export async function GET(req: NextRequest) {
@@ -52,28 +82,46 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { estimated, info, history } = await getRepoData(owner, name);
+    const { estimated, info, history, source } = await getRepoData(owner, name);
     const theme = themes[themeId] || themes[defaultTheme];
-
-    const series = history.slice(-90);
-    const values = series.map((d) => d.stars);
 
     const plotX = 44;
     const plotY = 98;
     const plotW = 636;
     const plotH = 260;
 
-    const { line, area, first, last } = buildSparkline(values, plotW, plotH);
-
-    const yMax = Math.max(1, ...values, info.stars);
+    const { line, area, points, yMax } = buildTimeline(
+      history,
+      plotW,
+      plotH,
+      info.stars
+    );
     const yMid = Math.round(yMax / 2);
-
-    const startDate = series[0]?.date ?? "";
-    const midDate = series[Math.floor(series.length / 2)]?.date ?? "";
-    const endDate = series.at(-1)?.date ?? "";
+    const firstPoint = points[0];
+    const lastPoint = points.at(-1);
+    const startDate = formatDateLabel(firstPoint?.dateMs);
+    const endDate = formatDateLabel(lastPoint?.dateMs);
+    const midDate = formatDateLabel(
+      firstPoint && lastPoint
+        ? firstPoint.dateMs + (lastPoint.dateMs - firstPoint.dateMs) / 2
+        : undefined
+    );
+    const markerPoints =
+      estimated && source === "public-snapshots"
+        ? points
+        : [firstPoint, lastPoint].filter(
+            (point, index, candidates): point is TimelineObservation =>
+              point !== undefined && candidates.indexOf(point) === index
+          );
+    const markers = markerPoints
+      .map((point) => {
+        const isLast = point === lastPoint;
+        return `<circle cx="${point.x}" cy="${point.y}" r="${isLast ? 5 : 4}" fill="${isLast ? theme.lineColors[0] : theme.background}" stroke="${theme.lineColors[0]}" stroke-width="2"/>`;
+      })
+      .join("\n    ");
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}${estimated ? " (estimated history)" : ""}">
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="420" viewBox="0 0 700 420" role="img" aria-label="RepoStars embed for ${esc(info.fullName)}${estimated ? " (observed points with unknown gaps)" : ""}">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${theme.lineColors[0]}" stop-opacity="0.36"/>
@@ -91,7 +139,7 @@ export async function GET(req: NextRequest) {
 
   <text x="678" y="37" text-anchor="end" fill="${theme.lineColors[0]}" font-family="Geist, Inter, Segoe UI, Arial" font-size="20" font-weight="700">★ ${formatStars(info.stars)}</text>
 
-  ${estimated ? `<text x="22" y="64" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="12" opacity="0.82">Estimated history · current total exact</text>` : ""}
+  ${estimated ? `<text x="22" y="64" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="12" opacity="0.82">Real observations · dashed gaps unknown · current total exact</text>` : ""}
 
   <g transform="translate(${plotX},${plotY})">
     <line x1="0" y1="0" x2="0" y2="${plotH}" stroke="${theme.gridColor}" opacity="0.72"/>
@@ -103,10 +151,9 @@ export async function GET(req: NextRequest) {
     <text x="-10" y="${Math.round(plotH / 2) + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">${formatStars(yMid)}</text>
     <text x="-10" y="${plotH + 4}" text-anchor="end" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.95">0</text>
 
-    ${line ? `<polygon points="${area}" fill="url(#g)"/>` : ""}
-    ${line ? `<polyline points="${line}" fill="none" filter="url(#soft-glow)" stroke="${theme.lineColors[0]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
-    ${first ? `<circle cx="${first.split(",")[0]}" cy="${first.split(",")[1]}" r="4" fill="${theme.background}" stroke="${theme.lineColors[0]}" stroke-width="2"/>` : ""}
-    ${last ? `<circle cx="${last.split(",")[0]}" cy="${last.split(",")[1]}" r="5" fill="${theme.lineColors[0]}" stroke="${theme.background}" stroke-width="2"/>` : ""}
+    ${!estimated && area ? `<polygon points="${area}" fill="url(#g)"/>` : ""}
+    ${points.length >= 2 ? `<polyline points="${line}" fill="none" filter="url(#soft-glow)" stroke="${theme.lineColors[0]}" stroke-width="3"${estimated ? ' stroke-dasharray="6 7"' : ""} stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+    ${markers}
 
     <text x="0" y="${plotH + 20}" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.82">${esc(startDate)}</text>
     <text x="${Math.round(plotW / 2)}" y="${plotH + 20}" text-anchor="middle" fill="${theme.textColor}" font-family="Geist, Inter, Segoe UI, Arial" font-size="10" opacity="0.82">${esc(midDate)}</text>

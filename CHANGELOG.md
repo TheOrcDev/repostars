@@ -4,7 +4,16 @@ All notable changes to RepoStars are listed here in plain language.
 
 ## 2026-08-02
 
-### Better launch curves for new repositories
+### Real snapshot-only history
+- Removed generated points, scaled event counts, and inferred baselines from restricted-repository charts.
+- Plot only exact aggregate observations from repository snapshots, archived GitHub metadata, and the current GitHub total.
+- Mark observed points explicitly and render unknown intervals as dashed, unfilled connectors in every theme.
+- Keep every fetched stargazer timestamp without resampling it into a fixed presentation timeline.
+- Preserve real star-count declines instead of forcing every history to increase.
+- Replace generated social-preview curves with exact current-star comparisons.
+- Refreshed the client cache so previously modeled histories are replaced immediately.
+
+### Earlier launch-curve experiment (superseded)
 - Used archived GitHub aggregate counts when a new repository is too young to appear in the primary historical dataset.
 - Added a guarded recent-activity tail when archived counts are unavailable, without inflating those recent events into the repository's full lifetime.
 - Kept the current GitHub star total exact while clearly labeling reconstructed launch curves as estimated.

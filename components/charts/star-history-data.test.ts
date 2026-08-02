@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  getGrowthStats,
+  getRangeStats,
   getRepoLegendItems,
   mergeStarHistories,
   type RepoChartData,
@@ -50,7 +52,7 @@ describe("getRepoLegendItems", () => {
 });
 
 describe("mergeStarHistories", () => {
-  it("densifies sparse single-repository anchors for smooth hover values", () => {
+  it("renders an estimated single-repository history from observed anchors only", () => {
     const name = "DavidHDev/canvas-ui";
     const anchors = [
       { date: "2026-07-16", stars: 0 },
@@ -62,32 +64,12 @@ describe("mergeStarHistories", () => {
 
     const rows = mergeStarHistories([{ data: anchors, estimated: true, name }]);
 
-    expect(rows.length).toBeGreaterThan(anchors.length);
-    expect(rows.length).toBeLessThanOrEqual(640);
-    for (const anchor of anchors) {
-      expect(rows).toContainEqual({
+    expect(rows).toEqual(
+      anchors.map((anchor) => ({
         date: new Date(anchor.date),
         [name]: anchor.stars,
-      });
-    }
-
-    const largestJump = rows.slice(1).reduce((maxJump, row, index) => {
-      const previous = rows[index];
-      expect(row.date.getTime()).toBeGreaterThan(
-        previous?.date.getTime() ?? Number.NEGATIVE_INFINITY
-      );
-      expect(Number(row[name])).toBeGreaterThanOrEqual(
-        Number(previous?.[name] ?? 0)
-      );
-      expect(Number.isInteger(Number(row[name]))).toBe(true);
-      expect(Number(row[name])).toBeLessThanOrEqual(3086);
-      return Math.max(
-        maxJump,
-        Number(row[name]) - Number(previous?.[name] ?? 0)
-      );
-    }, 0);
-
-    expect(largestJump).toBeLessThanOrEqual(50);
+      }))
+    );
   });
 
   it("keeps exact single-repository histories on their source points", () => {
@@ -100,7 +82,7 @@ describe("mergeStarHistories", () => {
     ]);
   });
 
-  it("keeps estimated timeline expansion within its point budget", () => {
+  it("does not manufacture intermediate counts across a large estimated gap", () => {
     const name = "acme/viral";
     const rows = mergeStarHistories([
       {
@@ -113,15 +95,13 @@ describe("mergeStarHistories", () => {
       },
     ]);
 
-    expect(rows.length).toBeLessThanOrEqual(640);
-    expect(rows[0]).toEqual({ date: new Date("2026-01-01"), [name]: 0 });
-    expect(rows.at(-1)).toEqual({
-      date: new Date("2026-01-02"),
-      [name]: 1_000_000,
-    });
+    expect(rows).toEqual([
+      { date: new Date("2026-01-01"), [name]: 0 },
+      { date: new Date("2026-01-02"), [name]: 1_000_000 },
+    ]);
   });
 
-  it("keeps explicit stepped timelines discrete for the 8-bit chart", () => {
+  it("does not resample estimated anchors for stepped presentation", () => {
     const name = "DavidHDev/canvas-ui";
     const anchors = [
       { date: "2026-07-16", stars: 0 },
@@ -135,13 +115,206 @@ describe("mergeStarHistories", () => {
       [{ data: anchors, estimated: true, name }],
       { pointCount: 72, step: true }
     );
-    const anchorValues = new Set(anchors.map((anchor) => anchor.stars));
 
-    expect(rows).toHaveLength(72);
-    expect(rows.every((row) => anchorValues.has(Number(row[name])))).toBe(true);
-    expect(rows.at(-1)).toEqual({
-      date: new Date("2026-08-02"),
-      [name]: 3086,
+    expect(rows).toEqual(
+      anchors.map((anchor) => ({
+        date: new Date(anchor.date),
+        [name]: anchor.stars,
+      }))
+    );
+  });
+
+  it("keeps mixed sparse histories inside each repository's observed bounds", () => {
+    const rows = mergeStarHistories([
+      {
+        data: [
+          { date: "2026-01-01", stars: 0 },
+          { date: "2026-01-03", stars: 30 },
+        ],
+        estimated: true,
+        name: "acme/observed",
+      },
+      {
+        data: [
+          { date: "2026-01-02", stars: 10 },
+          { date: "2026-01-04", stars: 20 },
+        ],
+        estimated: false,
+        name: "acme/exact",
+      },
+    ]);
+
+    expect(rows).toEqual([
+      { date: new Date("2026-01-01"), "acme/observed": 0 },
+      { date: new Date("2026-01-02"), "acme/exact": 10 },
+      {
+        date: new Date("2026-01-03"),
+        "acme/exact": 10,
+        "acme/observed": 30,
+      },
+      { date: new Date("2026-01-04"), "acme/exact": 20 },
+    ]);
+  });
+
+  it("uses only source timestamps for multi-repository presentation sampling", () => {
+    const rows = mergeStarHistories(
+      [
+        {
+          data: [
+            { date: "2026-01-01", stars: 0 },
+            { date: "2026-01-04", stars: 40 },
+          ],
+          estimated: false,
+          name: "acme/early",
+        },
+        {
+          data: [
+            { date: "2026-01-02", stars: 10 },
+            { date: "2026-01-03", stars: 15 },
+          ],
+          estimated: false,
+          name: "acme/late",
+        },
+      ],
+      { pointCount: 72, step: true }
+    );
+
+    expect(rows.map((row) => row.date)).toEqual([
+      new Date("2026-01-01"),
+      new Date("2026-01-02"),
+      new Date("2026-01-03"),
+      new Date("2026-01-04"),
+    ]);
+  });
+
+  it("retains every sparse estimated anchor without filling unknown dates", () => {
+    const rows = mergeStarHistories([
+      {
+        data: [
+          { date: "2026-01-01", stars: 0 },
+          { date: "2026-01-04", stars: 400 },
+        ],
+        estimated: true,
+        name: "acme/alpha",
+      },
+      {
+        data: [
+          { date: "2026-01-02", stars: 20 },
+          { date: "2026-01-03", stars: 75 },
+        ],
+        estimated: true,
+        name: "acme/beta",
+      },
+    ]);
+
+    expect(rows).toEqual([
+      { date: new Date("2026-01-01"), "acme/alpha": 0 },
+      { date: new Date("2026-01-02"), "acme/beta": 20 },
+      { date: new Date("2026-01-03"), "acme/beta": 75 },
+      { date: new Date("2026-01-04"), "acme/alpha": 400 },
+    ]);
+  });
+
+  it("does not extend a later repository back before its first observation", () => {
+    const rows = mergeStarHistories([
+      {
+        data: [
+          { date: "2026-01-01", stars: 5 },
+          { date: "2026-01-04", stars: 20 },
+        ],
+        estimated: false,
+        name: "acme/early",
+      },
+      {
+        data: [
+          { date: "2026-01-03", stars: 1 },
+          { date: "2026-01-04", stars: 2 },
+        ],
+        estimated: false,
+        name: "acme/late",
+      },
+    ]);
+
+    expect(rows[0]).not.toHaveProperty("acme/late");
+    expect(rows[1]).toMatchObject({
+      date: new Date("2026-01-03"),
+      "acme/early": 5,
+      "acme/late": 1,
     });
+  });
+});
+
+describe("getGrowthStats", () => {
+  it("uses the last exact star event at the window boundary", () => {
+    const exactRepo: RepoChartData = {
+      data: [
+        { date: "2026-01-01", stars: 10 },
+        { date: "2026-04-01", stars: 100 },
+        { date: "2026-04-11", stars: 120 },
+      ],
+      estimated: false,
+      name: "acme/exact",
+    };
+
+    expect(getGrowthStats([exactRepo], theme, 90)).toEqual([
+      {
+        color: theme.lineColors[0],
+        current: 120,
+        gain: 110,
+        name: "acme/exact",
+        previous: 10,
+      },
+    ]);
+  });
+
+  it("omits estimated histories whose window delta is unknowable", () => {
+    const estimatedRepo: RepoChartData = {
+      data: [
+        { date: "2026-01-01", stars: 10 },
+        { date: "2026-04-11", stars: 120 },
+      ],
+      estimated: true,
+      name: "acme/estimated",
+    };
+
+    expect(getGrowthStats([estimatedRepo], theme, 90)).toEqual([]);
+  });
+
+  it("preserves chart color indexes when estimated histories are omitted", () => {
+    const estimatedRepo: RepoChartData = {
+      data: [{ date: "2026-04-11", stars: 120 }],
+      estimated: true,
+      name: "acme/estimated",
+    };
+    const exactRepo: RepoChartData = {
+      data: [
+        { date: "2026-01-01", stars: 10 },
+        { date: "2026-04-11", stars: 120 },
+      ],
+      estimated: false,
+      name: "acme/exact",
+    };
+
+    expect(
+      getGrowthStats([estimatedRepo, exactRepo], theme, 90)[0]?.color
+    ).toBe(theme.lineColors[1]);
+  });
+});
+
+describe("getRangeStats", () => {
+  it("uses the series' original chart color", () => {
+    const rows = [
+      { date: new Date("2026-01-01"), "acme/exact": 10 },
+      { date: new Date("2026-01-02"), "acme/exact": 15 },
+    ];
+
+    const stats = getRangeStats(
+      rows,
+      [{ color: theme.lineColors[1], name: "acme/exact" }],
+      0,
+      1
+    );
+
+    expect(stats?.repos[0]?.color).toBe(theme.lineColors[1]);
   });
 });
