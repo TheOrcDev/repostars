@@ -50,7 +50,7 @@ describe("getRepoLegendItems", () => {
 });
 
 describe("mergeStarHistories", () => {
-  it("densifies sparse single-repository anchors for smooth hover values", () => {
+  it("expands sparse estimated anchors into a bursty, anchor-exact series", () => {
     const name = "DavidHDev/canvas-ui";
     const anchors = [
       { date: "2026-07-16", stars: 0 },
@@ -71,23 +71,29 @@ describe("mergeStarHistories", () => {
       });
     }
 
-    const largestJump = rows.slice(1).reduce((maxJump, row, index) => {
-      const previous = rows[index];
-      expect(row.date.getTime()).toBeGreaterThan(
-        previous?.date.getTime() ?? Number.NEGATIVE_INFINITY
-      );
-      expect(Number(row[name])).toBeGreaterThanOrEqual(
-        Number(previous?.[name] ?? 0)
-      );
+    const deltas: number[] = [];
+    for (let index = 1; index < rows.length; index += 1) {
+      const previous = rows[index - 1];
+      const row = rows[index];
+      expect(row.date.getTime()).toBeGreaterThan(previous.date.getTime());
+      expect(Number(row[name])).toBeGreaterThanOrEqual(Number(previous[name]));
       expect(Number.isInteger(Number(row[name]))).toBe(true);
       expect(Number(row[name])).toBeLessThanOrEqual(3086);
-      return Math.max(
-        maxJump,
-        Number(row[name]) - Number(previous?.[name] ?? 0)
-      );
-    }, 0);
+      const delta = Number(row[name]) - Number(previous[name]);
+      if (delta > 0) {
+        deltas.push(delta);
+      }
+    }
 
-    expect(largestJump).toBeLessThanOrEqual(50);
+    // Texture, not a straight line: gains vary instead of marching evenly.
+    const mean = deltas.reduce((sum, delta) => sum + delta, 0) / deltas.length;
+    expect(new Set(deltas).size).toBeGreaterThan(5);
+    expect(Math.max(...deltas)).toBeGreaterThan(mean * 1.5);
+
+    // Deterministic: re-rendering the same data yields the same curve.
+    expect(
+      mergeStarHistories([{ data: anchors, estimated: true, name }])
+    ).toEqual(rows);
   });
 
   it("keeps exact single-repository histories on their source points", () => {
@@ -135,10 +141,20 @@ describe("mergeStarHistories", () => {
       [{ data: anchors, estimated: true, name }],
       { pointCount: 72, step: true }
     );
-    const anchorValues = new Set(anchors.map((anchor) => anchor.stars));
 
     expect(rows).toHaveLength(72);
-    expect(rows.every((row) => anchorValues.has(Number(row[name])))).toBe(true);
+    let previous = 0;
+    for (const row of rows) {
+      const value = Number(row[name]);
+      expect(Number.isInteger(value)).toBe(true);
+      expect(value).toBeGreaterThanOrEqual(previous);
+      expect(value).toBeLessThanOrEqual(3086);
+      previous = value;
+    }
+    // Steps sample the textured series, so they land on more levels than the
+    // five raw anchors while staying discrete.
+    const distinctLevels = new Set(rows.map((row) => Number(row[name])));
+    expect(distinctLevels.size).toBeGreaterThan(anchors.length);
     expect(rows.at(-1)).toEqual({
       date: new Date("2026-08-02"),
       [name]: 3086,

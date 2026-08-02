@@ -1,4 +1,5 @@
 import type { StarDataPoint } from "@/lib/github";
+import { texturizeEstimatedHistory } from "@/lib/star-history-texture";
 import type { ChartTheme } from "@/lib/themes";
 
 export interface RepoChartData {
@@ -50,8 +51,6 @@ export interface RingDatum {
 
 const TIMELINE_POINT_COUNT = 200;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SINGLE_REPO_MAX_POINTS = 640;
-const SINGLE_REPO_MAX_STAR_STEP = 50;
 
 export function formatChartDate(value: Date | string | number) {
   const date = value instanceof Date ? value : new Date(value);
@@ -152,83 +151,38 @@ export function interpolateStarsAt(
 }
 
 /**
- * A single series otherwise exposes only its source anchors to chart hover,
- * even though the rendered line already connects the space between them.
- * Add bounded presentation-only samples so the tooltip follows that line in
- * small increments while retaining every original date and star total.
+ * Estimated histories arrive as sparse observed anchors; drawing straight
+ * lines between them reads as fake. Expand them into a deterministic,
+ * anchor-exact star-arrival series so estimated charts carry the bursty
+ * shape real star history has. Exact histories pass through untouched.
  */
-function densifySingleRepoHistory(repo: RepoChartData): StarHistoryRow[] {
-  const { data, name } = repo;
-  if (data.length < 2 || data.length >= SINGLE_REPO_MAX_POINTS) {
-    return data.map((point) => ({
-      date: new Date(point.date),
-      [name]: point.stars,
-    }));
+function withRealisticEstimates(repo: RepoChartData): RepoChartData {
+  if (!repo.estimated) {
+    return repo;
   }
-
-  let totalChange = 0;
-  for (let index = 1; index < data.length; index += 1) {
-    totalChange += Math.abs(data[index].stars - data[index - 1].stars);
-  }
-  const interpolationBudget = SINGLE_REPO_MAX_POINTS - data.length;
-  const maxStarStep = Math.max(
-    SINGLE_REPO_MAX_STAR_STEP,
-    Math.ceil(totalChange / interpolationBudget)
-  );
-
-  const rows: StarHistoryRow[] = [];
-  for (let index = 0; index < data.length - 1; index += 1) {
-    const start = data[index];
-    const end = data[index + 1];
-    const startMs = new Date(start.date).getTime();
-    const endMs = new Date(end.date).getTime();
-    if (
-      !(Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs)
-    ) {
-      return data.map((point) => ({
-        date: new Date(point.date),
-        [name]: point.stars,
-      }));
-    }
-
-    const starChange = end.stars - start.stars;
-    const steps = Math.max(1, Math.ceil(Math.abs(starChange) / maxStarStep));
-    for (let step = 0; step < steps; step += 1) {
-      const progress = step / steps;
-      rows.push({
-        date: new Date(startMs + (endMs - startMs) * progress),
-        [name]: Math.round(start.stars + starChange * progress),
-      });
-    }
-  }
-
-  const lastPoint = data.at(-1);
-  if (lastPoint) {
-    rows.push({
-      date: new Date(lastPoint.date),
-      [name]: lastPoint.stars,
-    });
-  }
-  return rows;
+  return {
+    ...repo,
+    data: texturizeEstimatedHistory(repo.name, repo.data),
+  };
 }
 
 export function mergeStarHistories(
   repos: RepoChartData[],
   options: { pointCount?: number; step?: boolean } = {}
 ): StarHistoryRow[] {
-  const populatedRepos = repos.filter((repo) => repo.data.length > 0);
+  const populatedRepos = repos
+    .filter((repo) => repo.data.length > 0)
+    .map(withRealisticEstimates);
   if (populatedRepos.length === 0) {
     return [];
   }
 
   if (populatedRepos.length === 1 && options.pointCount == null) {
     const [repo] = populatedRepos;
-    return repo.estimated
-      ? densifySingleRepoHistory(repo)
-      : repo.data.map((point) => ({
-          date: new Date(point.date),
-          [repo.name]: point.stars,
-        }));
+    return repo.data.map((point) => ({
+      date: new Date(point.date),
+      [repo.name]: point.stars,
+    }));
   }
 
   let globalMin = Number.POSITIVE_INFINITY;

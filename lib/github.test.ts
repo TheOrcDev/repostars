@@ -421,14 +421,14 @@ describe("getStarHistory", () => {
 
   it.each([
     {
-      bucket: "toDate(created_at)",
-      name: "for young repositories",
+      bucket: "toStartOfHour(created_at)",
+      name: "for brand-new repositories",
       now: "2026-08-02T21:00:00Z",
       today: "2026-08-02",
     },
     {
-      bucket: "toMonday(created_at)",
-      name: "after daily event bucketing expires",
+      bucket: "toDate(created_at)",
+      name: "after hourly event bucketing expires",
       now: "2026-10-16T21:00:00Z",
       today: "2026-10-16",
     },
@@ -573,6 +573,61 @@ describe("getStarHistory", () => {
     expect(String(eventQuery?.[1]?.body)).toContain(bucket);
   });
 
+  it("uses weekly event buckets for repositories older than the daily tier", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "test-token");
+
+    const fetchMock = vi.fn(
+      (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : input.toString();
+
+        if (url.includes("api.github.com/repos/acme/venerable/stargazers")) {
+          return jsonResponse({ message: "Not Found" }, { status: 404 });
+        }
+        if (url.includes("play.clickhouse.com")) {
+          const body = String(init?.body ?? "");
+          if (body.includes("github_repos_history")) {
+            return jsonResponse({ data: [] });
+          }
+          if (body.includes("github_events")) {
+            return jsonResponse({ data: [] });
+          }
+        }
+        if (url.includes("api.ossinsight.io")) {
+          return jsonResponse({
+            data: {
+              rows: [
+                { date: "2022-06-01", stargazers: "40" },
+                { date: "2024-06-01", stargazers: "90" },
+              ],
+            },
+          });
+        }
+
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "venerable", {
+      createdAt: "2022-01-10T00:00:00Z",
+      description: "",
+      fullName: "acme/venerable",
+      id: 9,
+      language: null,
+      owner: "acme",
+      repo: "venerable",
+      stars: 100,
+    });
+
+    expect(result.estimated).toBe(true);
+    expect(result.history.at(-1)).toEqual({ date: TODAY, stars: 100 });
+    const eventQuery = fetchMock.mock.calls.find(([, init]) =>
+      String(init?.body ?? "").includes("github_events")
+    );
+    expect(String(eventQuery?.[1]?.body)).toContain("toMonday(created_at)");
+  });
+
   it("preserves the magnitude of a capped recent-event tail", async () => {
     vi.setSystemTime(new Date("2026-08-02T21:00:00Z"));
     vi.stubEnv("GITHUB_TOKEN", "test-token");
@@ -638,10 +693,16 @@ describe("getStarHistory", () => {
     });
 
     expect(result.history).toContainEqual({ date: "2026-07-30", stars: 2872 });
-    expect(result.history).toContainEqual({ date: "2026-07-31", stars: 2922 });
-    expect(result.history).toContainEqual({ date: "2026-08-01", stars: 2992 });
+    expect(result.history).toContainEqual({
+      date: "2026-07-31T12:00:00Z",
+      stars: 2922,
+    });
+    expect(result.history).toContainEqual({
+      date: "2026-08-01T12:00:00Z",
+      stars: 2992,
+    });
     expect(result.history.at(-1)).toEqual({
-      date: "2026-08-02",
+      date: "2026-08-02T12:00:00Z",
       stars: 3082,
     });
   });

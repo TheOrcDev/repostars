@@ -22,7 +22,10 @@ const MIN_SHAPE_POINTS = 8;
 const MIN_SHAPE_STARS = 25;
 const MIN_SHAPE_SPAN_MS = 28 * DAY_MS;
 const MIN_SNAPSHOT_POINTS = 3;
-const DAILY_EVENT_MAX_AGE_MS = 90 * DAY_MS;
+// Hourly buckets stay under both MAX_PROVIDER_ROWS and the API route's
+// 750-anchor pass-through cap (30 days ≈ 720 rows plus boundaries).
+const HOURLY_EVENT_MAX_AGE_MS = 30 * DAY_MS;
+const DAILY_EVENT_MAX_AGE_MS = 3 * 365 * DAY_MS;
 // Keep launch recovery available beyond daily chart bucketing so a repository
 // does not lose its curve while the primary snapshot dataset is still catching up.
 const LAUNCH_FALLBACK_MAX_AGE_MS = 120 * DAY_MS;
@@ -95,6 +98,28 @@ function parseDate(value: unknown) {
   return date && Number.isFinite(Date.parse(`${date}T00:00:00Z`)) ? date : null;
 }
 
+const EVENT_DATETIME_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):\d{2})?/;
+
+/**
+ * Event rows may arrive as plain dates or as datetimes (hourly buckets,
+ * per-event timestamps). Keep the hour so young repos retain intraday shape;
+ * `parseDate` would flatten every bucket of a day into one point.
+ */
+function parseEventDate(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const match = EVENT_DATETIME_PATTERN.exec(value);
+  if (!match) {
+    return null;
+  }
+  const [, date, hour] = match;
+  if (!Number.isFinite(Date.parse(`${date}T00:00:00Z`))) {
+    return null;
+  }
+  return hour === undefined ? date : `${date}T${hour}:00:00Z`;
+}
+
 function toMonotonicHistory(
   rows: Array<{ date: unknown; stars: unknown }>
 ): StarDataPoint[] {
@@ -120,18 +145,18 @@ function toMonotonicHistory(
 function parseEventHistory(
   rows: EventHistoryRow[] | undefined
 ): StarDataPoint[] {
-  const dailyStars = new Map<string, number>();
+  const bucketStars = new Map<string, number>();
   for (const row of (rows ?? []).slice(0, MAX_PROVIDER_ROWS)) {
-    const date = parseDate(row.date);
+    const date = parseEventDate(row.date);
     const count = Number(row.new_stars);
     if (!(date && Number.isFinite(count) && count > 0)) {
       continue;
     }
-    dailyStars.set(date, (dailyStars.get(date) ?? 0) + Math.round(count));
+    bucketStars.set(date, (bucketStars.get(date) ?? 0) + Math.round(count));
   }
 
   let total = 0;
-  return Array.from(dailyStars, ([date, count]) => ({ count, date }))
+  return Array.from(bucketStars, ([date, count]) => ({ count, date }))
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((point) => {
       total += point.count;
@@ -165,7 +190,10 @@ function addKnownBoundaries(
 ): StarDataPoint[] {
   const today = todayIsoDate();
   const createdDate = parseDate(createdAt);
-  const bounded = history.filter((point) => point.date <= today);
+  // Compare by calendar day so intraday (hourly) points on today survive; the
+  // exact current total then lands on the last of them instead of a new point
+  // that would sort before them.
+  const bounded = history.filter((point) => point.date.slice(0, 10) <= today);
   const firstPoint = bounded[0];
 
   if (createdDate && (!firstPoint || createdDate < firstPoint.date)) {
@@ -173,7 +201,7 @@ function addKnownBoundaries(
   }
 
   const lastPoint = bounded.at(-1);
-  if (lastPoint?.date === today) {
+  if (lastPoint && lastPoint.date.slice(0, 10) === today) {
     lastPoint.stars = totalStars;
   } else {
     bounded.push({ date: today, stars: totalStars });
@@ -318,8 +346,16 @@ function isWithinRepoAge(createdAt: string, maxAgeMs: number) {
   return ageMs >= 0 && ageMs <= maxAgeMs;
 }
 
-function shouldUseDailyEventBuckets(createdAt: string) {
-  return isWithinRepoAge(createdAt, DAILY_EVENT_MAX_AGE_MS);
+type EventBucket = "day" | "hour" | "week";
+
+function eventBucketGranularity(createdAt: string): EventBucket {
+  if (isWithinRepoAge(createdAt, HOURLY_EVENT_MAX_AGE_MS)) {
+    return "hour";
+  }
+  if (isWithinRepoAge(createdAt, DAILY_EVENT_MAX_AGE_MS)) {
+    return "day";
+  }
+  return "week";
 }
 
 function hasUsableRecentEventTail(
@@ -342,7 +378,8 @@ function hasUsableWaybackSnapshots(history: StarDataPoint[]) {
 }
 
 function previousIsoDate(date: string) {
-  return new Date(Date.parse(`${date}T00:00:00Z`) - DAY_MS)
+  const day = date.slice(0, 10);
+  return new Date(Date.parse(`${day}T00:00:00Z`) - DAY_MS)
     .toISOString()
     .slice(0, 10);
 }
@@ -532,14 +569,21 @@ async function fetchWaybackSnapshotHistory(
   );
 }
 
+const EVENT_BUCKET_EXPRESSIONS: Record<EventBucket, string> = {
+  day: "toDate(created_at)",
+  hour: "toStartOfHour(created_at)",
+  week: "toMonday(created_at)",
+};
+
 /**
  * Sampled star (WatchEvent) counts from the GH Archive dataset hosted on
- * ClickHouse Play. Daily buckets preserve launch detail for young repos;
- * weekly buckets keep older histories within the row limit. The archive
+ * ClickHouse Play. Hourly buckets keep launch-day cliffs for brand-new repos,
+ * daily buckets preserve shape for anything younger than a few years, and
+ * weekly buckets keep decade-old histories within the row limit. The archive
  * records events under the repo name at event time, so renamed repos are
  * looked up under every known name.
  */
-async function fetchEventHistory(fullNames: string[], daily: boolean) {
+async function fetchEventHistory(fullNames: string[], bucket: EventBucket) {
   const names = [...new Set(fullNames)].filter((name) =>
     GITHUB_FULL_NAME_PATTERN.test(name)
   );
@@ -551,7 +595,7 @@ async function fetchEventHistory(fullNames: string[], daily: boolean) {
   url.searchParams.set("user", CLICKHOUSE_USER);
   url.searchParams.set("password", CLICKHOUSE_PASSWORD);
   const nameList = names.map((name) => `'${name}'`).join(", ");
-  const dateBucket = daily ? "toDate(created_at)" : "toMonday(created_at)";
+  const dateBucket = EVENT_BUCKET_EXPRESSIONS[bucket];
   const query = `SELECT ${dateBucket} AS date, count() AS new_stars FROM github_events WHERE repo_name IN (${nameList}) AND event_type = 'WatchEvent' GROUP BY date ORDER BY date LIMIT ${MAX_PROVIDER_ROWS} FORMAT JSON`;
   const response = await fetch(url, {
     body: query,
@@ -654,7 +698,7 @@ export async function fetchPublicStarHistory({
   if (requestedName) {
     eventNames.push(requestedName);
   }
-  const dailyEventBuckets = shouldUseDailyEventBuckets(createdAt);
+  const eventBucket = eventBucketGranularity(createdAt);
   const useLaunchFallbacks = isWithinRepoAge(
     createdAt,
     LAUNCH_FALLBACK_MAX_AGE_MS
@@ -663,10 +707,9 @@ export async function fetchPublicStarHistory({
   try {
     const snapshots = await fetchSnapshotHistory(repoId);
     if (hasUsableSnapshotHistory(snapshots)) {
-      const events = await fetchEventHistory(
-        eventNames,
-        dailyEventBuckets
-      ).catch(() => [] as StarDataPoint[]);
+      const events = await fetchEventHistory(eventNames, eventBucket).catch(
+        () => [] as StarDataPoint[]
+      );
       const repaired = repairTailWithEvents(
         repairHeadWithEvents(snapshots, events),
         events,
@@ -679,7 +722,7 @@ export async function fetchPublicStarHistory({
   }
 
   const [sampledEvents, waybackSnapshots] = await Promise.all([
-    fetchEventHistory(eventNames, dailyEventBuckets).catch(
+    fetchEventHistory(eventNames, eventBucket).catch(
       () => [] as StarDataPoint[]
     ),
     useLaunchFallbacks

@@ -23,7 +23,9 @@ export interface RepoInfo {
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const IS_AUTHENTICATED = Boolean(GITHUB_TOKEN);
-const RAW_HISTORY_MAX_POINTS = 750;
+// Matches the provider row limit so dense (hourly/daily) estimated histories
+// pass through instead of being collapsed into coarse staircase bins.
+const RAW_HISTORY_MAX_POINTS = 1200;
 
 let warnedMissingToken = false;
 function warnMissingToken() {

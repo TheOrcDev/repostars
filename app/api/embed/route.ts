@@ -1,6 +1,45 @@
 import { type NextRequest, NextResponse } from "next/server";
+import type { StarDataPoint } from "@/lib/github";
 import { getRepoData } from "@/lib/repo-cache";
+import { texturizeEstimatedHistory } from "@/lib/star-history-texture";
 import { defaultTheme, themes } from "@/lib/themes";
+
+const EMBED_SERIES_POINTS = 240;
+
+/**
+ * The sparkline spaces points evenly by index, so a textured series with
+ * mixed hour/day buckets must be resampled on an even time grid first.
+ * Step semantics (carry the last known value) keep jumps as jumps.
+ */
+function resampleByTime(points: StarDataPoint[], count: number) {
+  const first = points[0];
+  const last = points.at(-1);
+  if (!(first && last) || points.length < 2) {
+    return points.map((point) => point.stars);
+  }
+  const startMs = new Date(first.date).getTime();
+  const endMs = new Date(last.date).getTime();
+  if (
+    !(Number.isFinite(startMs) && Number.isFinite(endMs)) ||
+    endMs <= startMs
+  ) {
+    return points.map((point) => point.stars);
+  }
+
+  const values: number[] = [];
+  let cursor = 0;
+  for (let index = 0; index < count; index += 1) {
+    const t = startMs + ((endMs - startMs) * index) / (count - 1);
+    while (
+      cursor + 1 < points.length &&
+      new Date(points[cursor + 1].date).getTime() <= t
+    ) {
+      cursor += 1;
+    }
+    values.push(points[cursor].stars);
+  }
+  return values;
+}
 
 function formatStars(n: number) {
   if (n >= 1_000_000) {
@@ -56,7 +95,12 @@ export async function GET(req: NextRequest) {
     const theme = themes[themeId] || themes[defaultTheme];
 
     const series = history.slice(-90);
-    const values = series.map((d) => d.stars);
+    const values = estimated
+      ? resampleByTime(
+          texturizeEstimatedHistory(info.fullName, series),
+          EMBED_SERIES_POINTS
+        )
+      : series.map((d) => d.stars);
 
     const plotX = 44;
     const plotY = 98;
