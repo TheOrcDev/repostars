@@ -117,7 +117,7 @@ function PixelXAxis({ numTicks = 4 }: { numTicks?: number }) {
 
 PixelXAxis.displayName = "XAxis";
 
-function PixelEndpointMarkers({
+function PixelStartMarkers({
   repoNames,
   theme,
 }: {
@@ -140,7 +140,6 @@ function PixelEndpointMarkers({
           return [{ x, y }];
         });
         const first = points[0];
-        const last = points.at(-1);
 
         return (
           <g key={name}>
@@ -155,17 +154,6 @@ function PixelEndpointMarkers({
                 y={first.y - 4}
               />
             ) : null}
-            {last ? (
-              <rect
-                fill={color}
-                height={10}
-                stroke={theme.background}
-                strokeWidth={2}
-                width={10}
-                x={last.x - 5}
-                y={last.y - 5}
-              />
-            ) : null}
           </g>
         );
       })}
@@ -173,7 +161,7 @@ function PixelEndpointMarkers({
   );
 }
 
-PixelEndpointMarkers.displayName = "SeriesMarkers";
+PixelStartMarkers.displayName = "SeriesMarkers";
 
 export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
   function StarChart8Bit({ repos, theme }, ref) {
@@ -303,7 +291,7 @@ export const StarChart8Bit = forwardRef<HTMLDivElement, StarChart8BitProps>(
                 strokeWidth={5}
               />
             ))}
-            <PixelEndpointMarkers repoNames={repoNames} theme={theme} />
+            <PixelStartMarkers repoNames={repoNames} theme={theme} />
             <PixelXAxis numTicks={4} />
             <ChartTooltip
               panelStyle={{

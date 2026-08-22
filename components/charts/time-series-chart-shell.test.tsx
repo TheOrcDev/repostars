@@ -10,7 +10,7 @@ function SeriesMarkers() {
 SeriesMarkers.displayName = "SeriesMarkers";
 
 describe("isPostOverlayComponent", () => {
-  it("keeps series endpoint markers outside the chart clip", () => {
+  it("keeps series start markers outside the chart clip", () => {
     expect(isPostOverlayComponent(createElement(SeriesMarkers))).toBe(true);
   });
 });
