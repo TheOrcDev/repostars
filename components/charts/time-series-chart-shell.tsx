@@ -123,6 +123,7 @@ export function isPostOverlayComponent(child: ReactElement): boolean {
   return (
     componentName === "ChartMarkers" ||
     componentName === "MarkerGroup" ||
+    componentName === "SeriesMarkers" ||
     componentName === "ChartBrush"
   );
 }
