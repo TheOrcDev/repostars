@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { ChartSection } from "@/components/chart-section";
 import { EmptyState } from "@/components/empty-state";
-import { ExportBar, HeaderShareActions } from "@/components/export-bar";
+import { HeaderShareActions } from "@/components/export-bar";
 import { RepoChips } from "@/components/repo-chips";
 import { RepoSearch } from "@/components/repo-search";
 import { ThemePicker } from "@/components/theme-picker";
@@ -94,12 +94,6 @@ export function HomeContent({
                 theme={theme}
                 themeId={themeId}
               />
-              <div className="border-t bg-muted/40 px-4 py-2">
-                <ExportBar
-                  repoNames={repos.map((r) => r.info.fullName)}
-                  theme={theme}
-                />
-              </div>
             </div>
           ) : (
             <EmptyState loading={loading} onAdd={addRepo} />

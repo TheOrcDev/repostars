@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  Check,
-  Copy,
+  CodeSimple,
   DownloadSimple,
   LinkSimple,
   XLogo,
 } from "@phosphor-icons/react";
 import { toPng } from "html-to-image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +61,17 @@ function relaxLabelClipping(root: HTMLElement) {
   };
 }
 
+/** Markdown snippet that embeds the first repo's chart in a README. */
+function readmeEmbedCode(repoNames: string[], themeId: string) {
+  const repo = repoNames[0];
+  if (!repo) {
+    return "";
+  }
+  const img = `https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
+  const link = `https://repostars.dev/?repos=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
+  return `[![RepoStars](${img})](${link})`;
+}
+
 function useShareActions({
   chartRef,
   repoNames,
@@ -102,6 +112,19 @@ function useShareActions({
     }
   }, []);
 
+  const copyEmbed = useCallback(async () => {
+    const embedCode = readmeEmbedCode(repoNames, theme.id || "dark");
+    if (!embedCode) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(embedCode);
+      toast.success("README embed copied");
+    } catch {
+      toast.error("Couldn’t copy the README embed");
+    }
+  }, [repoNames, theme.id]);
+
   const shareOnX = useCallback(() => {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent("Compare GitHub stars with RepoStars");
@@ -112,16 +135,18 @@ function useShareActions({
     );
   }, []);
 
-  return { copyLink, exportPng, shareOnX };
+  return { copyEmbed, copyLink, exportPng, shareOnX };
 }
 
 interface ShareActionsProps {
+  onCopyEmbed: () => void;
   onCopyLink: () => void;
   onExportPng: () => void;
   onShareOnX: () => void;
 }
 
 function ShareActions({
+  onCopyEmbed,
   onCopyLink,
   onExportPng,
   onShareOnX,
@@ -140,6 +165,13 @@ function ShareActions({
       label: "Copy URL",
       onClick: onCopyLink,
       srLabel: "Copy chart URL",
+    },
+    {
+      icon: CodeSimple,
+      key: "embed",
+      label: "Embed",
+      onClick: onCopyEmbed,
+      srLabel: "Copy README embed code",
     },
     {
       icon: XLogo,
@@ -178,66 +210,12 @@ function ShareActions({
   );
 }
 
-export function ExportBar({ repoNames, theme }: ExportBarProps) {
-  const [embedCopied, setEmbedCopied] = useState(false);
-
-  const embedCode = useMemo(() => {
-    if (repoNames.length === 0) {
-      return "";
-    }
-    const repo = repoNames[0];
-    const themeId = theme.id || "dark";
-    const img = `https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
-    const link = `https://repostars.dev/?repos=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
-    return `[![RepoStars](${img})](${link})`;
-  }, [repoNames, theme.id]);
-
-  const copyReadmeEmbed = useCallback(async () => {
-    if (!embedCode) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(embedCode);
-      setEmbedCopied(true);
-      toast.success("README embed copied");
-      setTimeout(() => setEmbedCopied(false), 2000);
-    } catch {
-      toast.error("Couldn’t copy the README embed");
-    }
-  }, [embedCode]);
-
-  return embedCode ? (
-    <div>
-      <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
-        README Embed
-      </p>
-      <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
-        <code className="truncate font-mono text-muted-foreground text-xs">
-          {embedCode}
-        </code>
-        <Button
-          aria-label="Copy README embed code"
-          onClick={copyReadmeEmbed}
-          size="icon"
-          variant="ghost"
-        >
-          {embedCopied ? (
-            <Check size={16} weight="bold" />
-          ) : (
-            <Copy size={16} weight="bold" />
-          )}
-        </Button>
-      </div>
-    </div>
-  ) : null;
-}
-
 export function HeaderShareActions({
   chartRef,
   repoNames,
   theme,
 }: HeaderShareActionsProps) {
-  const { copyLink, exportPng, shareOnX } = useShareActions({
+  const { copyEmbed, copyLink, exportPng, shareOnX } = useShareActions({
     chartRef,
     repoNames,
     theme,
@@ -245,6 +223,7 @@ export function HeaderShareActions({
 
   return (
     <ShareActions
+      onCopyEmbed={copyEmbed}
       onCopyLink={copyLink}
       onExportPng={exportPng}
       onShareOnX={shareOnX}
