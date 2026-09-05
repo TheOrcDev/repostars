@@ -39,7 +39,7 @@ export function HomeContent({
       className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14"
       id="compare"
     >
-      <div className="rounded-2xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5 sm:p-6">
+      <div>
         <div className="mb-4 flex items-end justify-between gap-3">
           <p className="text-muted-foreground text-sm">
             Add a repo by owner/name or paste a GitHub URL.
@@ -73,7 +73,7 @@ export function HomeContent({
                   themeId={themeId}
                 />
               </div>
-              <div className="w-full rounded-xl border bg-muted/40 p-2 lg:w-auto lg:min-w-fit">
+              <div className="w-full lg:w-auto lg:min-w-fit">
                 <HeaderShareActions
                   chartRef={chartRef}
                   repoNames={repos.map((r) => r.info.fullName)}
