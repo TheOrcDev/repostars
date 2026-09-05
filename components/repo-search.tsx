@@ -80,12 +80,15 @@ export function RepoSearch({ onAdd, loading, repoCount }: RepoSearchProps) {
             <FieldLabel className="sr-only" htmlFor="repo">
               GitHub repository
             </FieldLabel>
-            <ButtonGroup>
+            {/* The focus ring wraps the whole group so the input and its
+                Add button read as one control. */}
+            <ButtonGroup className="w-full rounded-lg transition-[box-shadow,border-color] focus-within:ring-3 focus-within:ring-ring/50 has-[input[aria-invalid=true]]:ring-3 has-[input[aria-invalid=true]]:ring-destructive/20 dark:has-[input[aria-invalid=true]]:ring-destructive/40">
               <Input
                 {...field}
                 aria-errormessage="repo-error"
                 aria-invalid={fieldState.invalid}
                 autoComplete="off"
+                className="focus-visible:border-input focus-visible:ring-0 aria-invalid:ring-0"
                 disabled={loading}
                 id="repo"
                 placeholder="owner/repo or GitHub URL"
