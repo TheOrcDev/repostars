@@ -3,7 +3,6 @@ import type { SearchParams } from "nuqs/server";
 import { Footer } from "@/components/footer";
 import { Hero } from "@/components/hero";
 import { HomeContent } from "@/components/home-content";
-import { ThemesShowcase } from "@/components/themes-showcase";
 import { parseOgRepoNames } from "@/lib/og/load-og-repos";
 import { searchParamsCache } from "@/lib/search-params";
 import { defaultTheme, themes } from "@/lib/themes";
@@ -80,7 +79,6 @@ export default async function Home({ searchParams }: PageProps) {
           initialReposParam={reposParam}
           initialTheme={theme}
         />
-        <ThemesShowcase />
       </main>
       <Footer />
     </>

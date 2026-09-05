@@ -5,10 +5,7 @@ import { GitHubStarsButton } from "@/components/github-stars-button";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "./mode-toggle";
 
-const navLinks = [
-  { href: "#compare", label: "Compare" },
-  { href: "#themes", label: "Themes" },
-];
+const navLinks = [{ href: "#compare", label: "Compare" }];
 
 export function Header() {
   return (
