@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "ultracite check",
-    "fix": "ultracite fix"
+    "fix": "ultracite fix",
+    "og:preview": "node --import tsx scripts/render-og-matrix.mts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -55,6 +56,7 @@
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "ultracite": "7.7.0",
     "vitest": "^4.1.10"

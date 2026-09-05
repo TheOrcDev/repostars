@@ -7,3 +7,4 @@ out/
 next-env.d.ts
 .vercel/
 .DS_Store
+.og-preview/
