@@ -2,10 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { GitHubStarsButton } from "@/components/github-stars-button";
-import { Button } from "@/components/ui/button";
 import { ModeToggle } from "./mode-toggle";
-
-const navLinks = [{ href: "#compare", label: "Compare" }];
 
 export function Header() {
   return (
@@ -23,17 +20,6 @@ export function Header() {
             RepoStars
           </span>
         </Link>
-
-        <nav
-          aria-label="Primary"
-          className="flex min-w-0 flex-1 items-center justify-center gap-0.5 sm:gap-1"
-        >
-          {navLinks.map((link) => (
-            <Button asChild key={link.href} size="sm" variant="ghost">
-              <Link href={link.href}>{link.label}</Link>
-            </Button>
-          ))}
-        </nav>
 
         <div className="flex items-center gap-1.5">
           <Suspense
