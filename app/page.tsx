@@ -33,7 +33,7 @@ export async function generateMetadata({
   const ogUrl =
     repoList.length > 0
       ? `/api/og?${params.toString()}&ogv=${ogVersion}`
-      : `/og-image.png?v=${ogVersion}`;
+      : `/api/og?ogv=${ogVersion}`;
 
   return {
     title:

@@ -1,5 +1,12 @@
 import { formatStars } from "@/components/charts/star-history-data";
 import {
+  LOGO_AREA_POINTS,
+  LOGO_AREA_STROKE,
+  LOGO_GAP_STROKE,
+  LOGO_LINE_POINTS,
+  LOGO_VIEW_BOX,
+} from "@/lib/logo-geometry";
+import {
   isLoadedRepo,
   type OgChart,
   type OgRepo,
@@ -51,7 +58,6 @@ const MAX_LEGEND_CHIPS = 5;
 export interface OgCardProps {
   chart: OgChart | null;
   fonts: OgFontSet;
-  logoSrc: string;
   repos: OgRepo[];
   theme: ChartTheme;
 }
@@ -73,6 +79,40 @@ function treatmentFor(theme: ChartTheme): ThemeTreatment {
     star: pixel ? "*" : "★",
     titlePrefix: theme.id === "terminal" ? "> " : "",
   };
+}
+
+function LogoMark({ color, size }: { color: string; size: number }) {
+  return (
+    <svg
+      aria-hidden="true"
+      height={size}
+      style={{ flexShrink: 0 }}
+      viewBox={LOGO_VIEW_BOX}
+      width={size}
+    >
+      <defs>
+        <mask id="logo-gap">
+          <rect fill="#fff" height="64" width="64" />
+          <polyline
+            fill="none"
+            points={LOGO_LINE_POINTS}
+            stroke="#000"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={LOGO_GAP_STROKE}
+          />
+        </mask>
+      </defs>
+      <polygon
+        fill={color}
+        mask="url(#logo-gap)"
+        points={LOGO_AREA_POINTS}
+        stroke={color}
+        strokeLinejoin="round"
+        strokeWidth={LOGO_AREA_STROKE}
+      />
+    </svg>
+  );
 }
 
 function StarIcon({ color, size }: { color: string; size: number }) {
@@ -159,11 +199,7 @@ function endPoint(series: OgSeries, maxValue: number) {
   };
 }
 
-function Header({
-  fonts,
-  logoSrc,
-  theme,
-}: Pick<OgCardProps, "fonts" | "logoSrc" | "theme">) {
+function Header({ fonts, theme }: Pick<OgCardProps, "fonts" | "theme">) {
   return (
     <div
       style={{
@@ -175,14 +211,7 @@ function Header({
       }}
     >
       <div style={{ alignItems: "center", display: "flex", gap: 10 }}>
-        {/* biome-ignore lint/performance/noImgElement: Satori renders plain img elements */}
-        <img
-          alt=""
-          height={28}
-          src={logoSrc}
-          style={{ borderRadius: 7 }}
-          width={28}
-        />
+        <LogoMark color={theme.tooltipText} size={28} />
         <div
           style={{
             color: theme.tooltipText,
@@ -771,7 +800,7 @@ function Footer({
   );
 }
 
-export function OgCard({ chart, fonts, logoSrc, repos, theme }: OgCardProps) {
+export function OgCard({ chart, fonts, repos, theme }: OgCardProps) {
   const treatment = treatmentFor(theme);
   const loaded = repos.filter(isLoadedRepo);
   const single = loaded.length === 1 && repos.length === 1 ? loaded[0] : null;
@@ -818,7 +847,7 @@ export function OgCard({ chart, fonts, logoSrc, repos, theme }: OgCardProps) {
         width: OG_WIDTH,
       }}
     >
-      <Header fonts={fonts} logoSrc={logoSrc} theme={theme} />
+      <Header fonts={fonts} theme={theme} />
       <div style={{ display: "flex", height: TITLE_GAP }} />
       {title}
       <div style={{ display: "flex", height: CHART_GAP }} />
@@ -852,12 +881,10 @@ export function OgCard({ chart, fonts, logoSrc, repos, theme }: OgCardProps) {
  */
 export function OgFallbackCard({
   fonts,
-  logoSrc,
   names,
   theme,
 }: {
   fonts: OgFontSet;
-  logoSrc: string;
   names: string[];
   theme: ChartTheme;
 }) {
@@ -875,7 +902,7 @@ export function OgFallbackCard({
         width: OG_WIDTH,
       }}
     >
-      <Header fonts={fonts} logoSrc={logoSrc} theme={theme} />
+      <Header fonts={fonts} theme={theme} />
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div
           style={{

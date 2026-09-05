@@ -1,8 +1,8 @@
-# <img src="public/repostars-logo.png" width="32" height="32" alt="RepoStars" /> RepoStars
+# <img src="public/repostars-logo.svg" width="32" height="32" alt="RepoStars" /> RepoStars
 
 Modern, themeable GitHub star history charts. Track and compare repos with beautiful visualizations.
 
-![RepoStars](public/og-image.png)
+![RepoStars](https://repostars.dev/api/og?repos=47ng/nuqs&theme=dark)
 
 ## Features
 

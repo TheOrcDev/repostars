@@ -71,7 +71,7 @@ export const metadata: Metadata = {
       "Track, compare, and visualize GitHub star history with beautiful themeable charts. Compare up to 5 repos, export as PNG, share with a link.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/api/og?ogv=5",
         width: 1200,
         height: 630,
         alt: "RepoStars — GitHub Star History Charts with Themes",
@@ -83,7 +83,7 @@ export const metadata: Metadata = {
     title: "RepoStars — GitHub Star History Charts",
     description:
       "Track, compare, and visualize GitHub star history with beautiful themeable charts. 10 themes, PNG export, shareable links.",
-    images: ["/og-image.png"],
+    images: ["/api/og?ogv=5"],
     creator: "@theorcdev",
   },
   robots: {
