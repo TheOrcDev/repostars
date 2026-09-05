@@ -2,6 +2,16 @@
 
 All notable changes to RepoStars are listed here in plain language.
 
+## 2026-09-05
+
+### Exact star history for every public repository
+- Switched to GitHub's new privacy-safe star history API, which returns exact daily star counts without exposing who starred.
+- Charts now show real per-day growth for repositories up to about three years old and exact weekly totals beyond that.
+- Removed the estimation pipeline built on public snapshots, event archives, and web archive captures.
+- Kept a clearly labelled straight-line estimate only for the rare case that GitHub's star history is unavailable.
+- Embed sparklines now show the last 90 days by date rather than the last 90 data points.
+- Refreshed browser cache keys so previously estimated curves are replaced by exact ones.
+
 ## 2026-08-02
 
 ### Better launch curves for new repositories
