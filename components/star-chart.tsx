@@ -152,7 +152,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
         ...getChartThemeVars(theme),
         background: theme.background,
         color: theme.textColor,
-        fontFamily: theme.fontFamily,
+        fontFamily: theme.fontFamily ?? "var(--font-chart), sans-serif",
       }),
       [theme]
     );

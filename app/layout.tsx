@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
-import { Montserrat, PT_Mono, Roboto } from "next/font/google";
+import { Montserrat, Oxanium, PT_Mono, Roboto } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -21,6 +21,14 @@ const sans = Roboto({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["300", "400", "500", "700"],
+  display: "swap",
+});
+
+// Chart legend, axes, and stats. Themes with their own face override it.
+const chart = Oxanium({
+  subsets: ["latin"],
+  variable: "--font-chart",
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
@@ -119,7 +127,8 @@ export default function RootLayout({
         "font-sans",
         sans.variable,
         display.variable,
-        mono.variable
+        mono.variable,
+        chart.variable
       )}
       lang="en"
       suppressHydrationWarning
