@@ -25,8 +25,8 @@ export const ChartSection = forwardRef<HTMLDivElement, ChartSectionProps>(
       <div className="mb-6" ref={ref}>
         {hasEstimatedHistory && (
           <p className="border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
-            Estimated and interpolated from public snapshots and star activity —
-            current star total is exact.
+            GitHub&apos;s star history was unavailable, so this curve is
+            estimated — current star total is exact.
           </p>
         )}
         {themeId === "8bit" ? (
