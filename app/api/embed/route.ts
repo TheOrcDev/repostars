@@ -5,11 +5,31 @@ import { texturizeEstimatedHistory } from "@/lib/star-history-texture";
 import { defaultTheme, themes } from "@/lib/themes";
 
 const EMBED_SERIES_POINTS = 240;
+const EMBED_WINDOW_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The sparkline spaces points evenly by index, so a textured series with
- * mixed hour/day buckets must be resampled on an even time grid first.
- * Step semantics (carry the last known value) keep jumps as jumps.
+ * The most recent `days` of history. Histories may be daily, weekly, or a
+ * sparse estimate, so the window is cut by date rather than point count. The
+ * last point before the cutoff is kept as the starting anchor.
+ */
+function recentWindow(points: StarDataPoint[], days: number) {
+  const last = points.at(-1);
+  if (!last) {
+    return points;
+  }
+  const cutoffMs = new Date(last.date).getTime() - days * DAY_MS;
+  const anchorIndex = points.findLastIndex(
+    (point) => new Date(point.date).getTime() <= cutoffMs
+  );
+  return anchorIndex <= 0 ? points : points.slice(anchorIndex);
+}
+
+/**
+ * The sparkline spaces points evenly by index, so any series with uneven
+ * spacing (weekly points plus today, textured hour/day buckets) must be
+ * resampled on an even time grid first. Step semantics (carry the last
+ * known value) keep jumps as jumps.
  */
 function resampleByTime(points: StarDataPoint[], count: number) {
   const first = points[0];
@@ -94,13 +114,11 @@ export async function GET(req: NextRequest) {
     const { estimated, info, history } = await getRepoData(owner, name);
     const theme = themes[themeId] || themes[defaultTheme];
 
-    const series = history.slice(-90);
-    const values = estimated
-      ? resampleByTime(
-          texturizeEstimatedHistory(info.fullName, series),
-          EMBED_SERIES_POINTS
-        )
-      : series.map((d) => d.stars);
+    const series = recentWindow(history, EMBED_WINDOW_DAYS);
+    const values = resampleByTime(
+      estimated ? texturizeEstimatedHistory(info.fullName, series) : series,
+      EMBED_SERIES_POINTS
+    );
 
     const plotX = 44;
     const plotY = 98;
