@@ -146,6 +146,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
       [repos, theme]
     );
     const [rangeStats, setRangeStats] = useState<RangeStats | null>(null);
+    const [showInsights, setShowInsights] = useState(false);
     const chartStyle = useMemo<ChartStyle>(
       () => ({
         ...getChartThemeVars(theme),
@@ -251,7 +252,29 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
 
         <RangeStatsPanel stats={rangeStats} theme={theme} />
         {repos.length > 1 ? (
-          <StarCompanionCharts repos={repos} theme={theme} />
+          <>
+            {/* Optional insights are left out of PNG exports (see export-bar). */}
+            <div className="mt-3 flex justify-end" data-export-exclude>
+              <button
+                aria-expanded={showInsights}
+                className="rounded-md border px-2.5 py-1 text-xs transition-colors hover:opacity-100"
+                onClick={() => setShowInsights((open) => !open)}
+                style={{
+                  borderColor: theme.gridColor,
+                  color: theme.textColor,
+                  opacity: showInsights ? 1 : 0.8,
+                }}
+                type="button"
+              >
+                {showInsights ? "Hide insights" : "Show insights"}
+              </button>
+            </div>
+            {showInsights ? (
+              <div data-export-exclude>
+                <StarCompanionCharts repos={repos} theme={theme} />
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
     );

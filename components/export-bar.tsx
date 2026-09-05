@@ -76,6 +76,9 @@ function useShareActions({
       const dataUrl = await toPng(chartRef.current, {
         pixelRatio: 2,
         backgroundColor: theme.background,
+        // Optional insights and their toggle never belong in the image.
+        filter: (node) =>
+          !(node instanceof HTMLElement && "exportExclude" in node.dataset),
         skipFonts: true,
       });
       const link = document.createElement("a");
