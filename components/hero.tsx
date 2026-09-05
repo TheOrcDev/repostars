@@ -9,9 +9,6 @@ export function Hero({ compact }: HeroProps) {
     return (
       <section className="mx-auto max-w-5xl px-4 pt-10 pb-2 sm:px-6 sm:pt-14">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="font-medium text-muted-foreground text-xs uppercase tracking-[0.18em]">
-            Star history
-          </span>
           <h1 className="text-balance font-heading font-semibold text-3xl tracking-tight sm:text-4xl">
             Compare GitHub star history
           </h1>

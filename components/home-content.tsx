@@ -41,14 +41,9 @@ export function HomeContent({
     >
       <div className="rounded-2xl border bg-card p-4 shadow-sm ring-1 ring-foreground/5 sm:p-6">
         <div className="mb-4 flex items-end justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h2 className="font-heading font-semibold text-lg leading-none tracking-tight">
-              Compare repositories
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Add a repo by owner/name or paste a GitHub URL.
-            </p>
-          </div>
+          <p className="text-muted-foreground text-sm">
+            Add a repo by owner/name or paste a GitHub URL.
+          </p>
           <span className="shrink-0 rounded-full border px-2.5 py-1 font-medium text-muted-foreground text-xs tabular-nums">
             {repos.length}/5
           </span>
