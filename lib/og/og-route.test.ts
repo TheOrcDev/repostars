@@ -56,6 +56,19 @@ async function renderOg(query: string) {
   return GET(new Request(`http://localhost/api/og?${query}`) as NextRequest);
 }
 
+async function renderExport(query: string) {
+  const { GET } = await import("@/app/api/export/route");
+  return GET(
+    new Request(`http://localhost/api/export?${query}`) as NextRequest
+  );
+}
+
+/** Width and height from a PNG's IHDR chunk. */
+function pngSize(buffer: ArrayBuffer) {
+  const view = new DataView(buffer);
+  return { height: view.getUint32(20), width: view.getUint32(16) };
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`));
@@ -108,5 +121,44 @@ describe("OG image route", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/png");
+  });
+});
+
+describe("PNG export route", () => {
+  it("renders a 2x attachment for a loaded repository", async () => {
+    vi.stubGlobal("fetch", githubMock());
+
+    const response = await renderExport("repos=acme/widget&theme=dark");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("content-disposition")).toBe(
+      'attachment; filename="repostars-acme-widget.png"'
+    );
+    expect(response.headers.get("cache-control")).toContain("s-maxage=86400");
+    expect(pngSize(await response.arrayBuffer())).toEqual({
+      height: 1260,
+      width: 2400,
+    });
+  });
+
+  it("returns a JSON error instead of the brand card when every repo fails", async () => {
+    vi.stubGlobal("fetch", githubMock());
+
+    const response = await renderExport("repos=acme/missing&theme=dark");
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({
+      error: "Star history could not be loaded right now.",
+    });
+  });
+
+  it("rejects a request without repositories", async () => {
+    vi.stubGlobal("fetch", githubMock());
+
+    const response = await renderExport("theme=dark");
+
+    expect(response.status).toBe(400);
   });
 });
