@@ -253,8 +253,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
         <RangeStatsPanel stats={rangeStats} theme={theme} />
         {repos.length > 1 ? (
           <>
-            {/* Optional insights are left out of PNG exports (see export-bar). */}
-            <div className="mt-3 flex justify-end" data-export-exclude>
+            <div className="mt-3 flex justify-end">
               <button
                 aria-expanded={showInsights}
                 className="rounded-md border px-2.5 py-1 text-xs transition-colors hover:opacity-100"
@@ -270,9 +269,7 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
               </button>
             </div>
             {showInsights ? (
-              <div data-export-exclude>
-                <StarCompanionCharts repos={repos} theme={theme} />
-              </div>
+              <StarCompanionCharts repos={repos} theme={theme} />
             ) : null}
           </>
         ) : null}

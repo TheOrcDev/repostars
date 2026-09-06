@@ -6,8 +6,7 @@ import {
   LinkSimple,
   XLogo,
 } from "@phosphor-icons/react";
-import { toPng } from "html-to-image";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,49 +15,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { exportFilename } from "@/lib/og/export-filename";
 import type { ChartTheme } from "@/lib/themes";
 
-interface ExportBarProps {
+interface HeaderShareActionsProps {
   repoNames: string[];
   theme: ChartTheme;
-}
-
-interface HeaderShareActionsProps extends ExportBarProps {
-  chartRef: React.RefObject<HTMLDivElement | null>;
-}
-
-// Slack added to each label so a wider fallback face still fits its frozen box.
-const LABEL_EXPORT_SLACK_PX = 32;
-
-/**
- * html-to-image clones the chart with every element's width frozen at its live
- * value, then rasterises that clone without the page's web fonts. The fallback
- * face is wider, so labels that fit on screen lose characters to their
- * ellipsis. Widening the labels before the snapshot keeps them intact; the
- * returned callback puts the live DOM back.
- */
-function relaxLabelClipping(root: HTMLElement) {
-  const labels = Array.from(
-    root.querySelectorAll<HTMLElement>("[data-legend-label]")
-  );
-  const previous = labels.map((label) => label.getAttribute("style"));
-
-  for (const label of labels) {
-    const width = label.getBoundingClientRect().width;
-    label.style.textOverflow = "clip";
-    label.style.width = `${Math.ceil(width) + LABEL_EXPORT_SLACK_PX}px`;
-  }
-
-  return () => {
-    labels.forEach((label, index) => {
-      const style = previous[index];
-      if (style === null) {
-        label.removeAttribute("style");
-      } else {
-        label.setAttribute("style", style);
-      }
-    });
-  };
 }
 
 /** Markdown snippet that embeds the first repo's chart in a README. */
@@ -72,36 +34,77 @@ function readmeEmbedCode(repoNames: string[], themeId: string) {
   return `[![RepoStars](${img})](${link})`;
 }
 
-function useShareActions({
-  chartRef,
-  repoNames,
-  theme,
-}: HeaderShareActionsProps) {
+function exportUrl(repoNames: string[], themeId: string) {
+  const params = new URLSearchParams({
+    repos: repoNames.join(","),
+    theme: themeId,
+  });
+  return `/api/export?${params.toString()}`;
+}
+
+/**
+ * Hand a rendered PNG to the user. Phones get the share sheet (with "Save
+ * Image") when the browser can share files; everything else gets a download.
+ * Returns false when the user dismissed the share sheet.
+ */
+async function saveImage(blob: Blob, filename: string): Promise<boolean> {
+  const file = new File([blob], filename, { type: "image/png" });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return true;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return false;
+      }
+      // Fall through to a plain download if sharing is refused.
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = url;
+    link.click();
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  return true;
+}
+
+function useShareActions({ repoNames, theme }: HeaderShareActionsProps) {
+  const [exporting, setExporting] = useState(false);
+
   const exportPng = useCallback(async () => {
-    if (!chartRef.current) {
+    if (repoNames.length === 0 || exporting) {
       return;
     }
-    const restoreLabels = relaxLabelClipping(chartRef.current);
+    setExporting(true);
     try {
-      const dataUrl = await toPng(chartRef.current, {
-        pixelRatio: 2,
-        backgroundColor: theme.background,
-        // Optional insights and their toggle never belong in the image.
-        filter: (node) =>
-          !(node instanceof HTMLElement && "exportExclude" in node.dataset),
-        skipFonts: true,
-      });
-      const link = document.createElement("a");
-      link.download = `repostars-${repoNames.map((n) => n.replace("/", "-")).join("_")}.png`;
-      link.href = dataUrl;
-      link.click();
-      toast.success("Chart exported as PNG");
-    } catch {
-      toast.error("Couldn’t export the chart");
+      const response = await fetch(exportUrl(repoNames, theme.id));
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error ?? `HTTP ${response.status}`);
+      }
+      const saved = await saveImage(
+        await response.blob(),
+        exportFilename(repoNames)
+      );
+      if (saved) {
+        toast.success("Chart exported as PNG");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message
+          ? `Couldn’t export the chart: ${error.message}`
+          : "Couldn’t export the chart"
+      );
     } finally {
-      restoreLabels();
+      setExporting(false);
     }
-  }, [chartRef, repoNames, theme]);
+  }, [exporting, repoNames, theme.id]);
 
   const copyLink = useCallback(async () => {
     try {
@@ -135,17 +138,28 @@ function useShareActions({
     );
   }, []);
 
-  return { copyEmbed, copyLink, exportPng, shareOnX };
+  return { copyEmbed, copyLink, exportPng, exporting, shareOnX };
 }
 
 interface ShareActionsProps {
+  exporting: boolean;
   onCopyEmbed: () => void;
   onCopyLink: () => void;
   onExportPng: () => void;
   onShareOnX: () => void;
 }
 
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block size-4 animate-spin rounded-full border-2 border-current/30 border-t-current"
+    />
+  );
+}
+
 function ShareActions({
+  exporting,
   onCopyEmbed,
   onCopyLink,
   onExportPng,
@@ -153,6 +167,7 @@ function ShareActions({
 }: ShareActionsProps) {
   const shareActions = [
     {
+      busy: exporting,
       icon: DownloadSimple,
       key: "png",
       label: "PNG",
@@ -160,6 +175,7 @@ function ShareActions({
       srLabel: "Export chart as PNG",
     },
     {
+      busy: false,
       icon: LinkSimple,
       key: "link",
       label: "Copy URL",
@@ -167,6 +183,7 @@ function ShareActions({
       srLabel: "Copy chart URL",
     },
     {
+      busy: false,
       icon: CodeSimple,
       key: "embed",
       label: "Embed",
@@ -174,6 +191,7 @@ function ShareActions({
       srLabel: "Copy README embed code",
     },
     {
+      busy: false,
       icon: XLogo,
       key: "x",
       label: "Share X",
@@ -185,44 +203,53 @@ function ShareActions({
   return (
     <div className="flex shrink-0 items-center gap-2">
       <TooltipProvider>
-        {shareActions.map(({ icon: Icon, key, label, onClick, srLabel }) => (
-          <Tooltip key={key}>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={srLabel}
-                className="min-w-0 gap-2 border-border/70 bg-background/90 sm:min-w-[7.25rem]"
-                onClick={onClick}
-                size="sm"
-                variant="outline"
+        {shareActions.map(
+          ({ busy, icon: Icon, key, label, onClick, srLabel }) => (
+            <Tooltip key={key}>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-busy={busy}
+                  aria-label={srLabel}
+                  className="min-w-0 gap-2 border-border/70 bg-background/90 sm:min-w-[7.25rem]"
+                  disabled={busy}
+                  onClick={onClick}
+                  size="sm"
+                  variant="outline"
+                >
+                  {busy ? (
+                    <Spinner />
+                  ) : (
+                    <Icon data-icon="inline-start" size={16} weight="bold" />
+                  )}
+                  <span className="hidden sm:inline">{label}</span>
+                  <span className="sr-only sm:hidden">{srLabel}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent
+                className="sm:hidden"
+                side="bottom"
+                sideOffset={8}
               >
-                <Icon data-icon="inline-start" size={16} weight="bold" />
-                <span className="hidden sm:inline">{label}</span>
-                <span className="sr-only sm:hidden">{srLabel}</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="sm:hidden" side="bottom" sideOffset={8}>
-              {label}
-            </TooltipContent>
-          </Tooltip>
-        ))}
+                {label}
+              </TooltipContent>
+            </Tooltip>
+          )
+        )}
       </TooltipProvider>
     </div>
   );
 }
 
 export function HeaderShareActions({
-  chartRef,
   repoNames,
   theme,
 }: HeaderShareActionsProps) {
-  const { copyEmbed, copyLink, exportPng, shareOnX } = useShareActions({
-    chartRef,
-    repoNames,
-    theme,
-  });
+  const { copyEmbed, copyLink, exportPng, exporting, shareOnX } =
+    useShareActions({ repoNames, theme });
 
   return (
     <ShareActions
+      exporting={exporting}
       onCopyEmbed={copyEmbed}
       onCopyLink={copyLink}
       onExportPng={exportPng}
