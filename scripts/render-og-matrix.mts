@@ -4,6 +4,8 @@
  *
  *   node --import tsx scripts/render-og-matrix.mts [theme,...] [scenario,...]
  *
+ * Set OG_EXPORT=1 to render through the 2x download route instead.
+ *
  * Add `--env-file=.env` before `--import` to use GITHUB_TOKEN.
  *
  * GitHub responses are memoised in-process, so the matrix costs one set of
@@ -90,7 +92,10 @@ globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     : realFetch(input, init);
 }) as typeof fetch;
 
-const { GET } = await import("../app/api/og/route");
+const EXPORT = process.env.OG_EXPORT === "1";
+const { GET } = await import(
+  EXPORT ? "../app/api/export/route" : "../app/api/og/route"
+);
 
 await mkdir(OUT_DIR, { recursive: true });
 
@@ -107,7 +112,8 @@ for (const theme of THEMES) {
     const response = await GET(
       new Request(`http://localhost/api/og?${params}`) as never
     );
-    const file = join(OUT_DIR, `${theme}--${scenario}.png`);
+    const suffix = EXPORT ? "--2x" : "";
+    const file = join(OUT_DIR, `${theme}--${scenario}${suffix}.png`);
     await writeFile(file, Buffer.from(await response.arrayBuffer()));
     console.log(
       `${theme.padEnd(9)} ${scenario.padEnd(16)} ${response.status} ${Date.now() - started}ms`
