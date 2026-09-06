@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { chartParentSizeStyles } from "@/lib/chart-parent-size";
 import { cn } from "@/lib/utils";
 import {
   defaultRingColors,
@@ -462,7 +463,7 @@ export function RingChart({
       className={cn("relative aspect-square w-full", className)}
       ref={containerRef}
     >
-      <ParentSize debounceTime={10}>
+      <ParentSize debounceTime={10} parentSizeStyles={chartParentSizeStyles}>
         {({ width, height }) => (
           <RingChartInner
             baseInnerRadius={baseInnerRadius}

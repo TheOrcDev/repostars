@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { chartParentSizeStyles } from "@/lib/chart-parent-size";
 import { cn } from "@/lib/utils";
 import { Area, type AreaProps } from "./area";
 import type { LineConfig, Margin } from "./chart-context";
@@ -231,7 +232,7 @@ export function AreaChart({
       ref={containerRef}
       style={{ aspectRatio, touchAction: "none", ...style }}
     >
-      <ParentSize debounceTime={10}>
+      <ParentSize debounceTime={10} parentSizeStyles={chartParentSizeStyles}>
         {({ width, height }) => (
           <ChartInner
             animationDuration={animationDuration}

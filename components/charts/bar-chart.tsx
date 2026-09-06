@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { chartParentSizeStyles } from "@/lib/chart-parent-size";
 import { cn } from "@/lib/utils";
 import { DEFAULT_ANIMATION_EASING } from "./animation";
 import type { BarProps } from "./bar";
@@ -646,7 +647,7 @@ export function BarChart({
       ref={containerRef}
       style={{ aspectRatio }}
     >
-      <ParentSize debounceTime={10}>
+      <ParentSize debounceTime={10} parentSizeStyles={chartParentSizeStyles}>
         {({ width, height }) => (
           <ChartInner
             animationDuration={animationDuration}
