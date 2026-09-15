@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { ChartSection } from "@/components/chart-section";
 import { EmptyState } from "@/components/empty-state";
 import { HeaderShareActions } from "@/components/export-bar";
@@ -30,6 +31,7 @@ export function HomeContent({
     removeRepo,
   } = useRepos({ initialRepos, initialTheme, initialReposParam });
 
+  const chartRef = useRef<HTMLDivElement>(null);
   const hasRepos = repos.length > 0;
 
   return (
@@ -73,6 +75,7 @@ export function HomeContent({
               </div>
               <div className="w-full lg:w-auto lg:min-w-fit">
                 <HeaderShareActions
+                  chartRef={chartRef}
                   repoNames={repos.map((r) => r.info.fullName)}
                   theme={theme}
                 />
@@ -85,7 +88,12 @@ export function HomeContent({
           {/* Chart or empty state */}
           {hasRepos ? (
             <div className="overflow-hidden rounded-xl border shadow-sm">
-              <ChartSection repos={repos} theme={theme} themeId={themeId} />
+              <ChartSection
+                ref={chartRef}
+                repos={repos}
+                theme={theme}
+                themeId={themeId}
+              />
             </div>
           ) : (
             <EmptyState loading={loading} onAdd={addRepo} />

@@ -6,6 +6,7 @@ import {
   LinkSimple,
   XLogo,
 } from "@phosphor-icons/react";
+import { toPng } from "html-to-image";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,99 @@ import { exportFilename } from "@/lib/og/export-filename";
 import type { ChartTheme } from "@/lib/themes";
 
 interface HeaderShareActionsProps {
+  chartRef: React.RefObject<HTMLDivElement | null>;
   repoNames: string[];
   theme: ChartTheme;
+}
+
+/** Landing-page desktop content width (`max-w-5xl`). */
+const DESKTOP_EXPORT_WIDTH = 1024;
+
+// Slack added to each label so a wider fallback face still fits its frozen box.
+const LABEL_EXPORT_SLACK_PX = 32;
+
+function nextPaint() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+/**
+ * html-to-image clones the chart with every element's width frozen at its live
+ * value, then rasterises that clone without the page's web fonts. The fallback
+ * face is wider, so labels that fit on screen lose characters to their
+ * ellipsis. Widening the labels before the snapshot keeps them intact; the
+ * returned callback puts the live DOM back.
+ */
+function relaxLabelClipping(root: HTMLElement) {
+  const labels = Array.from(
+    root.querySelectorAll<HTMLElement>("[data-legend-label]")
+  );
+  const previous = labels.map((label) => label.getAttribute("style"));
+
+  for (const label of labels) {
+    const width = label.getBoundingClientRect().width;
+    label.style.textOverflow = "clip";
+    label.style.width = `${Math.ceil(width) + LABEL_EXPORT_SLACK_PX}px`;
+  }
+
+  return () => {
+    for (const [index, label] of labels.entries()) {
+      const style = previous[index];
+      if (style === null) {
+        label.removeAttribute("style");
+      } else {
+        label.setAttribute("style", style);
+      }
+    }
+  };
+}
+
+/**
+ * Snapshot the chart at the desktop landing-page width even on a phone, so
+ * Download PNG always matches the desktop chart rather than a narrow viewport.
+ */
+async function withDesktopChartLayout<T>(
+  node: HTMLElement,
+  run: () => Promise<T>
+): Promise<T> {
+  if (node.getBoundingClientRect().width >= DESKTOP_EXPORT_WIDTH) {
+    return run();
+  }
+
+  const targets = [node, node.parentElement].filter(
+    (element): element is HTMLElement => element instanceof HTMLElement
+  );
+  const previous = targets.map((element) => ({
+    element,
+    minWidth: element.style.minWidth,
+    overflow: element.style.overflow,
+    width: element.style.width,
+  }));
+
+  for (const element of targets) {
+    element.style.minWidth = `${DESKTOP_EXPORT_WIDTH}px`;
+    element.style.overflow = "visible";
+    element.style.width = `${DESKTOP_EXPORT_WIDTH}px`;
+  }
+  await nextPaint();
+
+  try {
+    return await run();
+  } finally {
+    for (const entry of previous) {
+      entry.element.style.minWidth = entry.minWidth;
+      entry.element.style.overflow = entry.overflow;
+      entry.element.style.width = entry.width;
+    }
+  }
+}
+
+async function dataUrlToBlob(dataUrl: string) {
+  const response = await fetch(dataUrl);
+  return response.blob();
 }
 
 /** Markdown snippet that embeds the first repo's chart in a README. */
@@ -32,14 +124,6 @@ function readmeEmbedCode(repoNames: string[], themeId: string) {
   const img = `https://repostars.dev/api/embed?repo=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
   const link = `https://repostars.dev/?repos=${encodeURIComponent(repo)}&theme=${encodeURIComponent(themeId)}`;
   return `[![RepoStars](${img})](${link})`;
-}
-
-function exportUrl(repoNames: string[], themeId: string) {
-  const params = new URLSearchParams({
-    repos: repoNames.join(","),
-    theme: themeId,
-  });
-  return `/api/export?${params.toString()}`;
 }
 
 /**
@@ -72,26 +156,39 @@ async function saveImage(blob: Blob, filename: string): Promise<boolean> {
   return true;
 }
 
-function useShareActions({ repoNames, theme }: HeaderShareActionsProps) {
+function useShareActions({
+  chartRef,
+  repoNames,
+  theme,
+}: HeaderShareActionsProps) {
   const [exporting, setExporting] = useState(false);
 
   const exportPng = useCallback(async () => {
-    if (repoNames.length === 0 || exporting) {
+    const chart = chartRef.current;
+    if (!chart || repoNames.length === 0 || exporting) {
       return;
     }
     setExporting(true);
     try {
-      const response = await fetch(exportUrl(repoNames, theme.id));
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(body?.error ?? `HTTP ${response.status}`);
-      }
-      const saved = await saveImage(
-        await response.blob(),
-        exportFilename(repoNames)
-      );
+      const saved = await withDesktopChartLayout(chart, async () => {
+        const restoreLabels = relaxLabelClipping(chart);
+        try {
+          const dataUrl = await toPng(chart, {
+            backgroundColor: theme.background,
+            // Optional insights and their toggle never belong in the image.
+            filter: (node) =>
+              !(node instanceof HTMLElement && "exportExclude" in node.dataset),
+            pixelRatio: 2,
+            skipFonts: true,
+          });
+          return saveImage(
+            await dataUrlToBlob(dataUrl),
+            exportFilename(repoNames)
+          );
+        } finally {
+          restoreLabels();
+        }
+      });
       if (saved) {
         toast.success("Chart exported as PNG");
       }
@@ -104,7 +201,7 @@ function useShareActions({ repoNames, theme }: HeaderShareActionsProps) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, repoNames, theme.id]);
+  }, [chartRef, exporting, repoNames, theme.background]);
 
   const copyLink = useCallback(async () => {
     try {
@@ -241,11 +338,12 @@ function ShareActions({
 }
 
 export function HeaderShareActions({
+  chartRef,
   repoNames,
   theme,
 }: HeaderShareActionsProps) {
   const { copyEmbed, copyLink, exportPng, exporting, shareOnX } =
-    useShareActions({ repoNames, theme });
+    useShareActions({ chartRef, repoNames, theme });
 
   return (
     <ShareActions
