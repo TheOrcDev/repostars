@@ -1,5 +1,6 @@
 "use client";
 
+import { curveLinear } from "@visx/curve";
 import {
   type CSSProperties,
   forwardRef,
@@ -219,6 +220,9 @@ export const StarChart = forwardRef<HTMLDivElement, StarChartProps>(
           <YAxis />
           {repoNames.map((name, index) => (
             <Area
+              // Daily totals are exact. A monotone spline spreads a one-day
+              // spike across neighboring days and turns it into a sigmoid.
+              curve={curveLinear}
               dataKey={name}
               fadeEdges
               fill={theme.lineColors[index % theme.lineColors.length]}
