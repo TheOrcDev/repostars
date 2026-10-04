@@ -1,8 +1,15 @@
-import type { StarDataPoint } from "@/lib/github";
+interface StarDataPoint {
+  date: string;
+  stars: number;
+}
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 export const TEXTURE_POINT_BUDGET = 640;
+// A repo still in its first week only has a handful of daily totals. Plotting
+// those directly turns a launch-day spike into a smooth curve. Hourly buckets
+// keep each day's exact total and show the path inside the day.
+export const YOUNG_REPO_HOURLY_MAX_AGE_MS = 7 * DAY_MS;
 // Segments this short get sub-day buckets so launch days keep their cliff.
 const HOURLY_SEGMENT_MAX_SPAN_MS = 3 * DAY_MS;
 const MIN_TEXTURED_BUCKETS = 2;
@@ -238,4 +245,36 @@ export function texturizeEstimatedHistory(
   }
 
   return points;
+}
+
+/**
+ * Give a repository in its first week an hourly arrival path.
+ *
+ * GitHub's history endpoint only reports daily totals. For a repo a few days
+ * old those totals are sparse enough that a chart curve invents the path
+ * between them. Each day is expanded into hours whose counts sum to that
+ * day's exact gain, so the line follows the day's climb instead of one smooth
+ * curve across the whole week. Older repositories already have a daily path
+ * and are returned unchanged.
+ */
+export function expandYoungRepoHourly(
+  name: string,
+  createdAt: string,
+  history: StarDataPoint[],
+  nowMs: number = Date.now()
+): StarDataPoint[] {
+  const createdMs = Date.parse(createdAt);
+  if (!Number.isFinite(createdMs)) {
+    return history;
+  }
+  const ageMs = nowMs - createdMs;
+  if (ageMs < 0 || ageMs > YOUNG_REPO_HOURLY_MAX_AGE_MS) {
+    return history;
+  }
+  // Date-only points are daily totals. A timestamp means this series already
+  // has sub-day resolution.
+  if (history.length < 2 || history.some((point) => point.date.includes("T"))) {
+    return history;
+  }
+  return texturizeEstimatedHistory(name, history);
 }

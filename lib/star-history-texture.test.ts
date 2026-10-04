@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { texturizeEstimatedHistory } from "@/lib/star-history-texture";
+import {
+  expandYoungRepoHourly,
+  texturizeEstimatedHistory,
+  YOUNG_REPO_HOURLY_MAX_AGE_MS,
+} from "@/lib/star-history-texture";
 
 const REPO = "DavidHDev/canvas-ui";
 const ANCHORS = [
@@ -112,5 +116,58 @@ describe("texturizeEstimatedHistory", () => {
       stars: index,
     }));
     expect(texturizeEstimatedHistory(REPO, dense)).toEqual(dense);
+  });
+});
+
+const YOUNG_DAILY = [
+  { date: "2026-09-30", stars: 0 },
+  { date: "2026-10-01", stars: 1 },
+  { date: "2026-10-02", stars: 111 },
+  { date: "2026-10-03", stars: 149 },
+  { date: "2026-10-04", stars: 151 },
+];
+
+describe("expandYoungRepoHourly", () => {
+  const createdAt = "2026-09-30T14:04:23Z";
+  const nowMs = Date.parse("2026-10-04T12:00:00Z");
+
+  it("spreads a first-week history across hours without moving daily totals", () => {
+    const points = expandYoungRepoHourly(REPO, createdAt, YOUNG_DAILY, nowMs);
+
+    expect(points.length).toBeGreaterThan(YOUNG_DAILY.length * 10);
+    expect(points.some((point) => point.date.includes("T"))).toBe(true);
+    for (const anchor of YOUNG_DAILY) {
+      expect(points.find((point) => point.date === anchor.date)?.stars).toBe(
+        anchor.stars
+      );
+    }
+
+    const spikeStart = points.findIndex((point) => point.date === "2026-10-01");
+    const spikeEnd = points.findIndex((point) => point.date === "2026-10-02");
+    const spike = points.slice(spikeStart, spikeEnd + 1);
+    const deltas = spike
+      .slice(1)
+      .map((point, index) => point.stars - spike[index].stars);
+    expect(Math.max(...deltas) - Math.min(...deltas)).toBeGreaterThan(0);
+    expect(spike.at(-1)?.stars).toBe(111);
+    expect(spike[0]?.stars).toBe(1);
+  });
+
+  it("leaves older repositories on their daily totals", () => {
+    const afterTheFirstWeek =
+      Date.parse(createdAt) + YOUNG_REPO_HOURLY_MAX_AGE_MS + 60_000;
+    expect(
+      expandYoungRepoHourly(REPO, createdAt, YOUNG_DAILY, afterTheFirstWeek)
+    ).toEqual(YOUNG_DAILY);
+  });
+
+  it("leaves an already hourly series untouched", () => {
+    const hourly = [
+      { date: "2026-10-04T00:00:00.000Z", stars: 0 },
+      { date: "2026-10-04T01:00:00.000Z", stars: 4 },
+    ];
+    expect(
+      expandYoungRepoHourly(REPO, "2026-10-04T00:00:00Z", hourly, nowMs)
+    ).toEqual(hourly);
   });
 });

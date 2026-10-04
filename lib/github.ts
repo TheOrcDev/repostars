@@ -2,6 +2,7 @@ import {
   fetchGitHubStarHistory,
   StarHistoryUnavailableError,
 } from "@/lib/github-star-history";
+import { expandYoungRepoHourly } from "@/lib/star-history-texture";
 
 export interface StarDataPoint {
   date: string; // ISO date or timestamp
@@ -144,13 +145,20 @@ export async function getStarHistoryResult(
     resolvedInfo.fullName.split("/");
 
   try {
-    const history = await fetchGitHubStarHistory(
+    const dailyHistory = await fetchGitHubStarHistory(
       canonicalOwner,
       canonicalRepo,
       { createdAt: resolvedInfo.createdAt, totalStars },
       GITHUB_TOKEN || undefined
     );
-    return { estimated: false, history };
+    return {
+      estimated: false,
+      history: expandYoungRepoHourly(
+        resolvedInfo.fullName,
+        resolvedInfo.createdAt,
+        dailyHistory
+      ),
+    };
   } catch (error) {
     warnHistoryUnavailable(resolvedInfo.fullName, error);
   }

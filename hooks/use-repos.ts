@@ -19,8 +19,8 @@ interface UseReposOptions {
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 // Bumped when the server-side history shape changes so stale curves cached in
-// localStorage are replaced. v8: exact histories from GitHub's star history API.
-const CLIENT_CACHE_VERSION = "v8";
+// localStorage are replaced. v9: repos in their first week use an hourly path.
+const CLIENT_CACHE_VERSION = "v9";
 
 function cacheKey(fullName: string) {
   return `repostars:repo:${CLIENT_CACHE_VERSION}:${fullName.toLowerCase()}`;

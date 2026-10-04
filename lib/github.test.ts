@@ -170,6 +170,41 @@ describe("getStarHistoryResult", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("expands a repository in its first week into an hourly path", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        jsonResponse([
+          { days: [0, 0, 0, 0, 5, 80, 15], total: 100, week: NEWEST_WEEK },
+        ])
+      )
+    );
+
+    const { getStarHistoryResult } = await import("@/lib/github");
+    const result = await getStarHistoryResult("acme", "widget", {
+      createdAt: "2026-09-03T10:00:00Z",
+      description: "",
+      fullName: "acme/widget",
+      id: 1,
+      language: null,
+      owner: "acme",
+      repo: "widget",
+      stars: 100,
+    });
+
+    expect(result.estimated).toBe(false);
+    expect(result.history.length).toBeGreaterThan(40);
+    expect(result.history[0]).toEqual({ date: "2026-09-02", stars: 0 });
+    expect(
+      result.history.find((point) => point.date === "2026-09-03")?.stars
+    ).toBe(5);
+    expect(
+      result.history.find((point) => point.date === "2026-09-04")?.stars
+    ).toBe(85);
+    expect(result.history.at(-1)?.stars).toBe(100);
+    expect(result.history.some((point) => point.date.includes("T"))).toBe(true);
+  });
+
   it("falls back to a labelled estimate when GitHub rate limits the history endpoint", async () => {
     vi.stubGlobal(
       "fetch",
